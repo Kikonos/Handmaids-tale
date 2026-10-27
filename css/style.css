@@ -315,3 +315,4 @@ input[type=range] { width: 220px; accent-color: var(--accent); height: 30px; }
 .census .crow b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); }
 .census .crow i { font-style: normal; font-size: 10px; color: var(--gold); margin-left: 2px; }
 .census .fig { flex: none; }
+.temblem { width: 150px; height: 150px; border-radius: 34px; box-shadow: 0 20px 60px #000, 0 0 80px #b3202a55; display: block; margin: 0 auto; }

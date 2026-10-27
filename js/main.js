@@ -10,7 +10,7 @@ import { CITY_POS } from './data/geo.js';
 import { saveGame, loadGame, saveMeta, deleteSave } from './engine/save.js';
 import { createMap } from './ui/map.js';
 import * as P from './ui/panels.js';
-import { seal, figure } from './ui/art.js';
+import { seal, figure, handmaidProfile } from './ui/art.js';
 import { fxChips, esc } from './ui/widgets.js';
 import { unlockAudio, playTheme, sfx, audioSettings, setAudio, THEME_NAMES, currentTheme } from './audio/audio.js';
 
@@ -41,14 +41,14 @@ function ensureAudio() {
 
 function titleHTML() {
   const meta = saveMeta('auto');
-  const procession = Array.from({ length: 14 }, (_, i) => `<div style="position:absolute;bottom:${8 + (i % 2) * 6}%;left:${-10 - i * 9}%;animation:walk 60s linear ${-i * 4.3}s infinite;opacity:.85">${figure('handmaid', 46, 74)}</div>`).join('');
+  const procession = Array.from({ length: 16 }, (_, i) => `<div style="position:absolute;bottom:${2 + (i % 2) * 5}%;left:-12%;animation:walk 70s linear ${-i * 4.4}s infinite;opacity:${i % 2 ? 0.55 : 0.85}">${handmaidProfile(i % 2 ? 38 : 46, i % 2 ? 76 : 92)}</div>`).join('');
   return `<style>@keyframes walk{to{transform:translateX(220vw)}}</style>
   <div class="tbg" style="background:radial-gradient(ellipse at 50% 35%, #3a0b0e 0%, #120606 55%, #050404 100%)"></div>
   <div class="tbg" style="opacity:.6">${procession}</div>
   <div class="vignette"></div>
   <div class="tcontent">
-    ${seal(96)}
-    <div class="kicker" style="margin-top:14px">The Republic of Gilead</div>
+    <img src="assets/brand/icon.svg" alt="" class="temblem">
+    <div class="kicker" style="margin-top:18px">The Republic of Gilead</div>
     <h1>Under His Eye</h1>
     <div class="tag2">Blessed be the fruit.</div>
     <div class="menu">

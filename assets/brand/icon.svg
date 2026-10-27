@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="58%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#8a141b"/><stop offset=".42" stop-color="#3e070c"/><stop offset="1" stop-color="#0b0606"/>
+    </radialGradient>
+    <linearGradient id="cloak" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d42a2f"/><stop offset=".6" stop-color="#a3161c"/><stop offset="1" stop-color="#5c0b0e"/>
+    </linearGradient>
+    <linearGradient id="wing" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ded6c6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".6"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="-6" dy="8" stdDeviation="10" flood-color="#000" flood-opacity=".6"/></filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g transform="translate(0 0) scale(1)">
+    <g opacity=".13" stroke="#ffd98a" stroke-width="3">
+      <line x1="372" y1="96" x2="-87.62666587138682" y2="481.67256581192356"/><line x1="372" y1="96" x2="-13.672565811923619" y2="555.6266658713869"/><line x1="372" y1="96" x2="71.99999999999994" y2="615.6152422706632"/><line x1="372" y1="96" x2="166.78791400459872" y2="659.815572471545"/><line x1="372" y1="96" x2="267.81109339984175" y2="686.8846518073248"/><line x1="372" y1="96" x2="371.99999999999994" y2="696"/><line x1="372" y1="96" x2="476.1889066001582" y2="686.8846518073248"/><line x1="372" y1="96" x2="577.2120859954013" y2="659.815572471545"/><line x1="372" y1="96" x2="671.9999999999999" y2="615.6152422706632"/><line x1="372" y1="96" x2="757.6725658119236" y2="555.6266658713869"/><line x1="372" y1="96" x2="831.6266658713868" y2="481.6725658119237"/>
+    </g>
+    <!-- The Eye, watching from above -->
+    <circle cx="372" cy="96" r="78" fill="url(#glow)"/>
+    <g transform="translate(372 96) scale(.82)">
+      <path d="M-62 0 Q0 -48 62 0 Q0 48 -62 0Z" fill="#f2e6cc" stroke="#c9a227" stroke-width="6"/>
+      <circle r="21" fill="#a3161c"/><circle r="9.5" fill="#0b0a09"/><circle cx="-6" cy="-6" r="4.5" fill="#fff"/>
+    </g>
+    <!-- The Handmaid -->
+    <g filter="url(#sh)" transform="translate(92 150) scale(1.08)"><g transform="rotate(-5 110 110)">
+    <path d="M72 126 C42 150 30 240 16 400 L178 400 C174 320 168 232 152 162 C146 140 132 132 118 134 Z" fill="url(#cloak)"/>
+    <path d="M78 150 C62 220 54 300 46 400 M120 150 C118 240 120 320 124 400" stroke="#000" stroke-opacity=".22" stroke-width="5" fill="none"/>
+    <path d="M58 132 C30 110 36 56 80 42 C110 33 150 40 172 54 L190 60 C196 100 194 150 184 192 L160 178 C136 158 108 152 90 154 C74 154 64 146 58 132 Z" fill="url(#wing)"/>
+    <path d="M110 42 C114 86 120 126 130 160" stroke="#cfc6b5" stroke-width="3" fill="none"/>
+    <path d="M184 63 C190 104 189 150 180 190 L174 187 C181 150 182 108 178 64Z" fill="#6b3a36" opacity=".55"/>
+  </g></g>
+  </g>
+</svg>

@@ -117,3 +117,13 @@ export function portrait(id, name, faction, stars = 1, dead = false) {
     ${st}${dead ? '<path d="M0 0 L54 64 M54 0 L0 64" stroke="#b3202a" stroke-width="2" opacity=".7"/>' : ''}
   </svg>`;
 }
+
+// Handmaid in profile, walking right (same drawing as the app icon).
+export function handmaidProfile(w = 40, h = 80) {
+  return `<svg viewBox="0 0 200 400" width="${w}" height="${h}" aria-hidden="true"><g transform="rotate(-5 110 110)">
+    <path d="M72 126 C42 150 30 240 16 400 L178 400 C174 320 168 232 152 162 C146 140 132 132 118 134 Z" fill="#9c151b"/>
+    <path d="M78 150 C62 220 54 300 46 400 M120 150 C118 240 120 320 124 400" stroke="#000" stroke-opacity=".22" stroke-width="5" fill="none"/>
+    <path d="M58 132 C30 110 36 56 80 42 C110 33 150 40 172 54 L190 60 C196 100 194 150 184 192 L160 178 C136 158 108 152 90 154 C74 154 64 146 58 132 Z" fill="#efe8da"/>
+    <path d="M110 42 C114 86 120 126 130 160" stroke="#cfc6b5" stroke-width="3" fill="none"/>
+  </g></svg>`;
+}

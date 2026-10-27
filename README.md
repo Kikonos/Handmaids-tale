@@ -1,6 +1,6 @@
 # Gilead: Under His Eye
 
-**v1.0.0 "Under His Eye"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
+**v1.0.1 "Under His Eye"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
 
 You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the United States, carry out the Three Strikes, and then build, run and defend the Republic of Gilead through six eras that follow the show's arc:
 
@@ -60,6 +60,8 @@ The game is a static web app with no build step, so any static host works.
 3. On the iPad, open `https://<your-user>.github.io/<repo>/` in Safari.
 4. Tap **Share → Add to Home Screen**. The game then launches full-screen in landscape and keeps working offline.
 
+The home-screen app is called **Gilead**. Its icon is a Handmaid in profile beneath the Eye, and it opens on a launch screen of Handmaids walking in pairs. Launch screens are included for the iPad (A16), iPad Air, iPad Pro, iPad mini and the 10.2" iPad, in both orientations.
+
 > If there is no sound, check the iPad's volume and silent mode, then tap the screen once. iOS only allows audio after a tap.
 
 ## Running locally
@@ -73,6 +75,7 @@ python3 -m http.server 8080   # then open http://localhost:8080
 ```bash
 npm install              # only needed for the map build and tests
 npm run build:geo        # regenerates js/data/geo.js from us-atlas / world-atlas
+npm run build:brand      # regenerates icons and iPad launch screens in assets/brand/
 npm test                 # headless simulation: bots play full games, checking for errors and NaNs
 ```
 
