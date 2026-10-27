@@ -34,6 +34,14 @@ function boot() {
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
+// Top-bar offset: iPadOS can lay its status bar / window controls (and a blur) over the top of a
+// home-screen web app. The layout always reserves env(safe-area-inset-top); this adds a user nudge on top.
+const TOP_OFFSETS = [0, 12, 24, 36, 48];
+function topOffset() { try { const v = localStorage.getItem('gilead-top-extra'); if (v != null) return +v; } catch { } return isStandalone() ? 12 : 0; }
+function isStandalone() { return navigator.standalone === true || matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches; }
+function applyTopOffset(v = topOffset()) { document.documentElement.style.setProperty('--top-extra', v + 'px'); }
+applyTopOffset();
+
 function ensureAudio() {
   unlockAudio();
   if (!currentTheme()) playTheme(app.G ? THEME_OF[app.G.phase] : 'title');
@@ -347,6 +355,8 @@ function settingsScreen(G) {
     <div class="row"><span>Sound effects</span><input type="range" min="0" max="1" step="0.05" value="${a.sfx}" data-input="sfx"></div>
     <div class="row"><span>Mute everything</span><button class="btn sm" data-act="mute">${a.muted ? 'Unmute' : 'Mute'}</button></div>
     <div class="row"><span>Now playing</span><span class="muted">♪ ${THEME_NAMES[currentTheme()] || '—'}</span></div>
+    <h3>Display</h3>
+    <div class="row"><span>Top bar position<br><small class="muted">Move the top bar down if the iPad's status bar covers it</small></span><span class="btnrow" style="margin:0">${TOP_OFFSETS.map(v => `<button class="btn sm ${topOffset() === v ? 'gold' : ''}" data-act="topoffset" data-arg="${v}">${v ? '+' + v : 'Auto'}</button>`).join('')}</span></div>
     <h3>Saves</h3><div class="row"><span><b>Autosave</b> <span class="muted">every month and when you leave</span></span><button class="btn sm" data-act="save" data-arg="auto">Save now</button></div>${slots}
     <h3>Game</h3>
     <div class="row"><span>How to play</span><button class="btn sm" data-act="howto">Open</button></div>
@@ -407,6 +417,7 @@ function onClick(e) {
     case 'heli': result(A.toggleHeli(G, arg)); after(); break;
     case 'save': result(saveGame(G, arg) ? { ok: true, msg: 'Saved' } : { ok: false, msg: 'Could not save (storage unavailable)' }); after(); break;
     case 'load': { const g = loadGame(arg); if (g) { startGame(g); toast('Loaded'); } break; }
+    case 'topoffset': try { localStorage.setItem('gilead-top-extra', arg); } catch { } applyTopOffset(+arg); after(); break;
     case 'mute': setAudio('muted', !audioSettings().muted); after(); break;
   }
 }
