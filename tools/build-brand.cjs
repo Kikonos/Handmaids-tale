@@ -58,9 +58,10 @@ function iconSVG(scale = 1, rounded = false) {
 // ---------------- Launch screen ----------------
 const b64 = f => fs.readFileSync(path.join(ROOT, 'assets/fonts', f)).toString('base64');
 function splashHTML(w, h) {
-  const fonts = `@font-face{font-family:Fell;src:url(data:font/woff2;base64,${b64('im-fell-english-latin-400-normal.woff2')}) format('woff2')}
-  @font-face{font-family:FellI;src:url(data:font/woff2;base64,${b64('im-fell-english-latin-400-italic.woff2')}) format('woff2')}
-  @font-face{font-family:Inter;src:url(data:font/woff2;base64,${b64('inter-latin-500-normal.woff2')}) format('woff2')}`;
+  const fonts = `@font-face{font-family:Disp;src:url(data:font/woff2;base64,${b64('instrument-serif.woff2')}) format('woff2')}
+  @font-face{font-family:Disp;font-style:italic;src:url(data:font/woff2;base64,${b64('instrument-serif-italic.woff2')}) format('woff2')}
+  @font-face{font-family:Inter;font-weight:100 900;src:url(data:font/woff2;base64,${b64('inter-var.woff2')}) format('woff2')}
+  @font-face{font-family:Mono;font-weight:100 800;src:url(data:font/woff2;base64,${b64('jetbrains-mono-var.woff2')}) format('woff2')}`;
   const portrait = h > w;
   const base = Math.min(w, h);
   // Handmaids walking in pairs along the bottom
@@ -79,14 +80,14 @@ function splashHTML(w, h) {
   .grain{position:absolute;inset:0;opacity:.05;background:repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 4px)}
   .floor{position:absolute;left:0;right:0;bottom:0;height:${base * 0.05}px;background:linear-gradient(transparent,#000)}
   .c{position:absolute;left:0;right:0;top:${portrait ? 18 : 8}%;text-align:center;color:#eadfca}
-  .k{font-family:Inter;letter-spacing:${base * 0.014}px;font-size:${base * 0.017}px;color:#c9a227;text-transform:uppercase;margin-top:${base * 0.04}px}
-  h1{font-family:Fell;font-weight:400;font-size:${base * 0.115}px;margin:${base * 0.006}px 0 0;line-height:1;text-shadow:0 0 ${base * 0.05}px #b3202a99}
-  .t{font-family:FellI;font-size:${base * 0.034}px;color:#cfc3ab;margin-top:${base * 0.012}px}
+  .k{font-family:Mono;font-weight:500;letter-spacing:${base * 0.012}px;font-size:${base * 0.015}px;color:#ff6b70;text-transform:uppercase;margin-top:${base * 0.045}px}
+  h1{font-family:Disp;font-weight:400;font-size:${base * 0.13}px;margin:${base * 0.008}px 0 0;line-height:.95;letter-spacing:-.01em;color:#eceef1}h1 em{color:#ff6b70}
+  .t{font-family:Inter;font-weight:450;font-size:${base * 0.019}px;color:#7d838d;margin-top:${base * 0.02}px}
   .vig{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 50%,#000b 100%)}
   </style></head><body><div class="bg"></div><div class="grain"></div>
   <svg style="position:absolute;inset:0" width="${w}" height="${h}">${procession}</svg>
   <div class="floor"></div><div class="vig"></div>
-  <div class="c">${icon}<div class="k">The Republic of Gilead</div><h1>Under His Eye</h1><div class="t">Blessed be the fruit.</div></div>
+  <div class="c">${icon}<div class="k">The Republic of Gilead</div><h1>Under His <em>Eye</em></h1><div class="t">Blessed be the fruit.</div></div>
   </body></html>`;
 }
 

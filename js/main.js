@@ -180,7 +180,7 @@ function renderNav() {
   patch($('#nav'), NAV.filter(n => !n[3] || n[3](G)).map(([id, ic, l]) => {
     const nd = id === 'decrees' ? DECREES.filter(d => A.decreeState(G, d) === 'available' && G.res.power >= A.decreeCost(G, d)).length : 0;
     const badge = id === 'dispatch' && G.events.queue.length ? `<span class="badge">${G.events.queue.length}</span>` : nd ? `<span class="badge gold">${nd}</span>` : '';
-    const on = app.tab === id || (id === 'dispatch' && app.drawer?.type === 'dispatch') || (id === 'map' && app.tab === 'map' && app.drawer?.type !== 'dispatch');
+    const on = id === 'dispatch' ? app.drawer?.type === 'dispatch' : id === 'map' ? app.tab === 'map' && app.drawer?.type !== 'dispatch' : app.tab === id;
     return `<button class="navbtn ${on ? 'on' : ''}" data-act="tab" data-arg="${id}" data-key="${id}">${icon(ic)}${l}${badge}</button>`;
   }).join(''));
 }

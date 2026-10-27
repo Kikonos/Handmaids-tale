@@ -1,6 +1,6 @@
 # Gilead: Under His Eye
 
-**v1.0.2 "Under His Eye"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
+**v1.1.0 "Blessed Be the Fruit"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
 
 You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the United States, carry out the Three Strikes, and then build, run and defend the Republic of Gilead through six eras that follow the show's arc:
 
@@ -12,6 +12,14 @@ You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the
 | 4 | **The War** | Take Chicago, live under sanctions, face Angels' Flight and the Waterfords' arrest in Toronto. |
 | 5 | **New Bethlehem** | Run Lawrence's soft-power reform, or spring the hardliners' trap. |
 | 6 | **The Reckoning** | Survive the wedding, hold Boston for a year and rule from sea to sea. |
+
+## What's new in v1.1 "Blessed Be the Fruit"
+
+- **Complete art overhaul.** A new design system: dark glass panels, Inter for the interface, Instrument Serif for titles and JetBrains Mono for every number.
+- **No emoji anywhere.** About 110 icons were drawn for the game on a single 24px grid. Class avatars and Commander dossier portraits were redrawn too.
+- **Dashboards.** Area charts, gauges, a population donut and progress meters on the People, War, Plot and state screens.
+- **Responsive taps.** The interface used to rebuild its buttons about 10 times a second, so taps on iPad were lost. Panels are now patched in place, and taps are dispatched on finger-up from the element you touched.
+- **Smoother map.** All map motion (trains, helicopters, strikes, front-line fire) now runs on a canvas layer. The census card collapses and sits clear of New England, the legend is a toggle, and the map pans so the state you open stays visible.
 
 ## Features
 
