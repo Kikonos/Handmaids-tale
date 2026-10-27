@@ -5,6 +5,7 @@ import * as A from './engine/actions.js';
 import { resolveEvent, choiceAvailable } from './engine/events.js';
 import { EVENT_BY_ID } from './data/events.js';
 import { PHASES } from './data/phases.js';
+import { DECREES } from './data/decrees.js';
 import { CITY_POS } from './data/geo.js';
 import { saveGame, loadGame, saveMeta, deleteSave } from './engine/save.js';
 import { createMap } from './ui/map.js';
@@ -25,12 +26,17 @@ app.A = A; app.tick = tick;
 function boot() {
   $('#title').innerHTML = titleHTML();
   document.addEventListener('click', onClick);
-  document.addEventListener('pointerdown', () => { unlockAudio(); if (!currentTheme()) playTheme(app.G ? THEME_OF[app.G.phase] : 'title'); }, { passive: true });
+  for (const ev of ['pointerdown', 'touchend', 'click']) document.addEventListener(ev, ensureAudio, { passive: true });
   window.addEventListener('pagehide', () => app.G && saveGame(app.G, 'auto'));
   document.addEventListener('visibilitychange', () => { if (document.hidden && app.G) { saveGame(app.G, 'auto'); app.G.paused = true; } });
   document.addEventListener('gesturestart', e => e.preventDefault());
   requestAnimationFrame(loop);
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+function ensureAudio() {
+  unlockAudio();
+  if (!currentTheme()) playTheme(app.G ? THEME_OF[app.G.phase] : 'title');
 }
 
 function titleHTML() {
@@ -145,7 +151,7 @@ function renderHud() {
   if (G.phase > 0 && G.day % 5 === 0) G._trainCache = inTraining(G);
   renderCensus();
   if (app._navPhase !== G.phase) { renderNav(); renderMapUi(); }
-  else if (app._navQ !== G.events.queue.length) renderNav();
+  else if (app._navQ !== G.events.queue.length || G.day % 10 === 0) renderNav();
 }
 const NAV = [
   ['map', '🗺', 'Map'], ['plot', '🕯', 'The Plot', G => G.phase === 0], ['war', '⚔', 'War', G => G.phase > 0], ['pop', '👥', 'People'],
@@ -156,7 +162,8 @@ function renderNav() {
   const G = app.G;
   app._navPhase = G.phase; app._navQ = G.events.queue.length;
   $('#nav').innerHTML = NAV.filter(n => !n[3] || n[3](G)).map(([id, i, l]) => {
-    const badge = id === 'dispatch' && G.events.queue.length ? `<span class="badge">${G.events.queue.length}</span>` : id === 'decrees' ? (() => { const n = (window.__decreeAvail = 0); return ''; })() : '';
+    const nd = id === 'decrees' ? DECREES.filter(d => A.decreeState(G, d) === 'available' && G.res.power >= A.decreeCost(G, d)).length : 0;
+    const badge = id === 'dispatch' && G.events.queue.length ? `<span class="badge">${G.events.queue.length}</span>` : nd ? `<span class="badge" style="background:#a8861f">${nd}</span>` : '';
     return `<button class="navbtn ${app.tab === id || (id === 'dispatch' && app.drawer?.type === 'dispatch') ? 'on' : ''}" data-act="tab" data-arg="${id}"><span class="i">${i}</span>${l}${badge}</button>`;
   }).join('');
 }
@@ -256,7 +263,10 @@ function modal(html, cls = '') {
   app.modal = true;
   $('#modal-root').innerHTML = `<div class="backdrop"><div class="modal ${cls}">${html}</div></div>`;
 }
-function closeModal() { app.modal = null; $('#modal-root').innerHTML = ''; if (app.G) { refreshPanels(true); renderHud(); app.map.render(app.G); } }
+function closeModal() {
+  app.modal = null; $('#modal-root').innerHTML = '';
+  const G = app.G;
+  if (G && G._wasRunning && !G.outcome && !G.events.queue.some(q => EVENT_BY_ID[q.id].urgent)) { G._wasRunning = false; G.paused = false; } if (app.G) { refreshPanels(true); renderHud(); app.map.render(app.G); } }
 
 function openEvent(uid) {
   const G = app.G;
@@ -351,7 +361,6 @@ document.addEventListener('input', e => {
 // ---------------- Actions ----------------
 function onClick(e) {
   const t = e.target.closest('[data-act]');
-  unlockAudio();
   if (!t) return;
   const act = t.dataset.act, arg = t.dataset.arg || '';
   const G = app.G;

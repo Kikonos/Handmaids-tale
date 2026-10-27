@@ -73,7 +73,7 @@ export function enqueue(G, id, extra = {}) {
   const loc = extra.loc || resolveLoc(G, H, e);
   const q = { uid: G.uid++, id, loc, day: G.day, expires: e.urgent ? null : G.day + (e.ttl || 25), ...extra };
   G.events.queue.push(q);
-  if (e.urgent) { G.paused = true; (G.notes || (G.notes = [])).push({ kind: 'urgent', text: e.title, uid: q.uid }); }
+  if (e.urgent) { if (!G.paused) G._wasRunning = true; G.paused = true; (G.notes || (G.notes = [])).push({ kind: 'urgent', text: e.title, uid: q.uid }); }
   else (G.notes || (G.notes = [])).push({ kind: 'event', text: e.title, uid: q.uid });
 }
 

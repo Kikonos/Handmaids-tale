@@ -27,7 +27,7 @@ export function unlockAudio() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   ac = new AC();
-  master = ac.createGain(); master.gain.value = 0.9;
+  master = ac.createGain(); master.gain.value = 1.7;
   const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
   master.connect(comp); comp.connect(ac.destination);
   musicBus = ac.createGain(); musicBus.gain.value = settings.muted ? 0 : settings.music; musicBus.connect(master);
@@ -255,4 +255,14 @@ function boom(t, size) {
   I.noiseHit(t, 0.35 * size, 1.2 * size, 'lowpass', 300, sfxBus, 0.4);
   const g = ac.createGain(); g.connect(out(sfxBus, 0.3)); g.gain.setValueAtTime(0.5 * size, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
   const o = ac.createOscillator(); o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(30, t + 0.6); o.connect(g); o.start(t); o.stop(t + 0.9);
+}
+
+// Debug: current output level (RMS, 0..1) — used by the automated audio check.
+let an = null;
+export function _level() {
+  if (!ac) return -1;
+  if (!an) { an = ac.createAnalyser(); an.fftSize = 2048; master.connect(an); }
+  const d = new Float32Array(an.fftSize); an.getFloatTimeDomainData(d);
+  let s = 0, pk = 0; for (const v of d) { s += v * v; pk = Math.max(pk, Math.abs(v)); }
+  return { rms: Math.sqrt(s / d.length), peak: pk };
 }
