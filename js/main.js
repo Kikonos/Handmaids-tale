@@ -83,9 +83,9 @@ function loop(now) {
   if (G && !G.outcome) {
     const running = !G.paused && !app.modal;
     if (running) {
-      app.acc += dt / SPEEDS[G.speed || 1];
+      app.acc += dt / SPEEDS[G.speed || 1] * (app.turbo || 1);
       let n = 0;
-      while (app.acc >= 1 && n < 6) { app.acc--; n++; try { tick(G); } catch (e) { console.error(e); G.paused = true; toast('Simulation error: ' + e.message, 'bad'); } if (G.paused || G.outcome) { app.acc = 0; break; } }
+      while (app.acc >= 1 && n < (app.turbo ? 40 : 6)) { app.acc--; n++; try { tick(G); } catch (e) { console.error(e); G.paused = true; toast('Simulation error: ' + e.message, 'bad'); } if (G.paused || G.outcome) { app.acc = 0; break; } }
       if (n) {
         if (G.day % 30 === 0) saveGame(G, 'auto');
         processNotes();

@@ -76,6 +76,13 @@ export function createMap(root, ctx) {
     const n = LABEL_NUDGE[ab] || [0, 0];
     const t = el('text', { x: s.c[0] + n[0], y: s.c[1] + n[1] + 3, class: 'stlabel' }, gLabels); t.textContent = ab;
   }
+  const gRealm = el('g', { 'pointer-events': 'none' }, world);
+  const realm = el('text', { 'font-size': 22, fill: '#ffd9a0', 'fill-opacity': 0, 'text-anchor': 'middle', 'font-family': 'Fell, serif', 'letter-spacing': '7' }, gRealm);
+  realm.textContent = 'REPUBLIC OF GILEAD';
+  const la = el('text', { x: FOREIGN_CITIES.toronto.x - 4, y: FOREIGN_CITIES.toronto.y - 10, 'font-size': 6.5, fill: '#a8c4f0', opacity: 0, 'font-family': 'Inter', 'font-style': 'italic' }, gRealm);
+  la.textContent = 'Little America';
+  const exileT = el('text', { x: CITY_POS.anchorage.x + 4, y: CITY_POS.anchorage.y + 10, 'font-size': 6.5, fill: '#a8c4f0', opacity: .8, 'font-family': 'Inter', 'font-style': 'italic' }, gRealm);
+  exileT.textContent = 'Government in exile';
   const gFire = el('g', { 'pointer-events': 'none' }, world);
   const gCities = el('g', {}, world);
   const cityEls = {};
@@ -202,6 +209,13 @@ export function createMap(root, ctx) {
       hatch[ab].setAttribute('opacity', contested && (mode === 'auto' || mode === 'control') ? 0.75 : 0);
       paths[ab].classList.toggle('sel', selected === ab);
     }
+    // Realm label over the weighted centre of held territory
+    if (G.phase > 0) {
+      let sx = 0, sy = 0, n = 0;
+      for (const [ab, s] of Object.entries(G.st)) if (s.hold >= 99.5 && !s.exile && SHAPE[ab]) { const w = Math.sqrt(STATES[ab].pop); sx += SHAPE[ab].c[0] * w; sy += SHAPE[ab].c[1] * w; n += w; }
+      if (n) { realm.setAttribute('x', (sx / n).toFixed(0)); realm.setAttribute('y', (sy / n + 34).toFixed(0)); realm.setAttribute('fill-opacity', 0.16); }
+      la.setAttribute('opacity', 0.8);
+    } else { realm.setAttribute('fill-opacity', 0); la.setAttribute('opacity', 0); }
     const nmlOn = G.decrees.d_nomansland != null || G.phase >= 3;
     nml.setAttribute('opacity', nmlOn ? 0.55 : 0); nmlLabel.setAttribute('opacity', nmlOn ? 0.7 : 0);
     // rails

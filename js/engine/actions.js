@@ -33,7 +33,7 @@ export function plotAction(G, id) {
   const chap = Object.values(G.st).filter(s => s.chapter >= 10).length;
   switch (id) {
     case 'fundraise': {
-      const g = Math.round(10 + G.res.members / 15000 + chap * 0.25);
+      const g = Math.round(10 + Math.sqrt(G.res.members) / 28 + chap * 0.25);
       add(G, 'funds', g); add(G, 'suspicion', 1);
       return ok(`The faithful give $${g}M.`);
     }

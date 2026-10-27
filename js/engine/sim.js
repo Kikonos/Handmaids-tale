@@ -40,7 +40,7 @@ export function tick(G) {
 // ---------------- Phase 0 ----------------
 function plotTick(G) {
   const r = G.res;
-  add(G, 'funds', 0.05 + r.members / 1e6 * 1.1);
+  add(G, 'funds', 0.05 + Math.sqrt(r.members) / 2500);
   add(G, 'influence', 0.05 + seated(G).length * 0.006);
   let m = 0;
   for (const [ab, s] of Object.entries(G.st)) if (s.chapter > 0) m += s.chapter / 100 * STATES[ab].pop * STATES[ab].faith * 7;
