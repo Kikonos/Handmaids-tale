@@ -13,12 +13,12 @@ export { centroid };
 
 // ---------------- Pre-coup (Phase 0) ----------------
 export const PLOT_ACTIONS = {
-  fundraise: { name: 'Fundraise among the faithful', icon: '💰', cd: 20, desc: 'Megachurch donors, front charities, lawyer members.' },
-  sermon: { name: 'Fertility-crisis broadcast', icon: '📺', cd: 30, cost: { funds: 8 }, desc: 'Sermons on the dying birth rate. Members and influence in every chapter state.' },
-  jobless: { name: 'Recruit the jobless', icon: '🏭', cd: 25, cost: { funds: 5 }, desc: 'Pryce\'s job-centre pitch: "We\'ll set things right." Rust Belt chapters grow.', needs: 'pryce' },
-  cover: { name: 'Cover our tracks', icon: '🗂', cd: 15, cost: { funds: 12 }, desc: 'Lawyers, shell charities, deleted lists. FBI suspicion falls.' },
-  publish: { name: 'Publish "A Woman\'s Place"', icon: '📕', once: true, cost: { funds: 15 }, desc: 'Serena Joy\'s manifesto of domestic feminism and biological destiny.' },
-  moles: { name: 'Plant moles in the Bureau', icon: '🕴', once: true, cost: { funds: 40, influence: 10 }, desc: 'Friends inside the FBI. Suspicion grows half as fast.' },
+  fundraise: { name: 'Fundraise among the faithful', icon: 'coins', cd: 20, desc: 'Megachurch donors, front charities, lawyer members.' },
+  sermon: { name: 'Fertility-crisis broadcast', icon: 'tv', cd: 30, cost: { funds: 8 }, desc: 'Sermons on the dying birth rate. Members and influence in every chapter state.' },
+  jobless: { name: 'Recruit the jobless', icon: 'factory', cd: 25, cost: { funds: 5 }, desc: 'Pryce\'s job-centre pitch: "We\'ll set things right." Rust Belt chapters grow.', needs: 'pryce' },
+  cover: { name: 'Cover our tracks', icon: 'folder', cd: 15, cost: { funds: 12 }, desc: 'Lawyers, shell charities, deleted lists. FBI suspicion falls.' },
+  publish: { name: 'Publish "A Woman\'s Place"', icon: 'book', once: true, cost: { funds: 15 }, desc: 'Serena Joy\'s manifesto of domestic feminism and biological destiny.' },
+  moles: { name: 'Plant moles in the Bureau', icon: 'eyeoff', once: true, cost: { funds: 40, influence: 10 }, desc: 'Friends inside the FBI. Suspicion grows half as fast.' },
 };
 
 export function plotAction(G, id) {
@@ -99,9 +99,9 @@ export function infiltrate(G, ab) {
 }
 
 export const PLOTS = {
-  congress: { name: 'Congress', icon: '🏛', desc: 'Twenty to thirty gunmen in the Capitol galleries.' },
-  whitehouse: { name: 'The White House', icon: '🏠', desc: 'An explosion in the West Wing.' },
-  court: { name: 'The Supreme Court', icon: '⚖', desc: 'The Court, at session.' },
+  congress: { name: 'Congress', icon: 'columns', desc: 'Twenty to thirty gunmen in the Capitol galleries.' },
+  whitehouse: { name: 'The White House', icon: 'flag', desc: 'An explosion in the West Wing.' },
+  court: { name: 'The Supreme Court', icon: 'scales', desc: 'The Court, at session.' },
 };
 export function fundPlot(G, k) {
   if (G.phase !== 0) return no('Not now');

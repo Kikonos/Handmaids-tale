@@ -127,11 +127,11 @@ export const COMMANDERS = {
 };
 
 export const PORTFOLIOS = {
-  adm: { name: 'Economy & Administration', icon: '⚖', desc: 'Treasury, supplies and construction speed' },
-  mil: { name: 'War & the Guardians', icon: '⚔', desc: 'Offensives and defence of the front' },
-  int: { name: 'The Eyes', icon: '👁', desc: 'Suppression of Mayday and detention yield' },
-  dip: { name: 'Foreign Affairs', icon: '✉', desc: 'International standing and trade' },
-  faith: { name: 'Faith & Rites', icon: '✝', desc: 'Piety, the Ceremony, Prayvaganzas' },
+  adm: { name: 'Economy & Administration', icon: 'scales', desc: 'Treasury, supplies and construction speed' },
+  mil: { name: 'War & the Guardians', icon: 'swords', desc: 'Offensives and defence of the front' },
+  int: { name: 'The Eyes', icon: 'eye', desc: 'Suppression of Mayday and detention yield' },
+  dip: { name: 'Foreign Affairs', icon: 'globe', desc: 'International standing and trade' },
+  faith: { name: 'Faith & Rites', icon: 'cross', desc: 'Piety, the Ceremony, Prayvaganzas' },
 };
 
 export const AUNTS = ['Aunt Lydia', 'Aunt Elizabeth', 'Aunt Ruth', 'Aunt Vidala', 'Aunt Gabbana', 'Aunt Estée', 'Aunt Sara', 'Aunt Kimberly'];
