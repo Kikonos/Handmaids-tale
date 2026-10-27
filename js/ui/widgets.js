@@ -5,31 +5,37 @@ export const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;',
 
 // Parliament-style semicircle. seats: total; fill: array of {color, label?, id?} in seat order (left→right).
 export function hemicycle(seats, fill, opts = {}) {
-  const W = opts.w || 300, H = W * 0.56;
-  const cx = W / 2, cy = H - 8, R = W / 2 - 10;
+  const W = opts.w || 300, H = W * 0.55;
   const rows = opts.rows || Math.max(1, Math.min(8, Math.round(Math.sqrt(seats / 3))));
-  const r0 = R * (rows > 2 ? 0.38 : 0.5);
-  const radii = Array.from({ length: rows }, (_, i) => r0 + (R - r0) * (rows === 1 ? 1 : i / (rows - 1)));
+  const frac = rows <= 2 ? 0.58 : 0.42;
+  // seat radius: fit both radial spacing and the innermost row's arc
+  let R = W / 2 - 4, r0 = R * frac;
+  const rad = (R0, Rr) => Array.from({ length: rows }, (_, i) => R0 + (Rr - R0) * (rows === 1 ? 1 : i / (rows - 1)));
+  let radii = rad(r0, R);
   const tot = radii.reduce((a, b) => a + b, 0);
   const per = radii.map(r => Math.max(1, Math.round(seats * r / tot)));
   let diff = seats - per.reduce((a, b) => a + b, 0);
-  for (let i = rows - 1; diff !== 0; i = (i - 1 + rows) % rows) { per[i] += Math.sign(diff); diff -= Math.sign(diff); }
+  for (let i = rows - 1; diff !== 0; i = (i - 1 + rows) % rows) { if (per[i] + Math.sign(diff) >= 1) { per[i] += Math.sign(diff); diff -= Math.sign(diff); } }
+  const radial = rows > 1 ? (R - r0) / (rows - 1) : R * 0.25;
+  const arc = Math.min(...radii.map((r, i) => Math.PI * r / Math.max(1, per[i] - 1 || 1)));
+  const seatR = Math.min(opts.maxR || 14, radial * 0.44, arc * 0.44);
+  R = W / 2 - seatR - 3; r0 = R * frac; radii = rad(r0, R);
+  const cx = W / 2, cy = H - seatR - 3;
   const pts = [];
   radii.forEach((r, i) => { const n = per[i]; for (let k = 0; k < n; k++) { const a = Math.PI - (n === 1 ? Math.PI / 2 : Math.PI * k / (n - 1)); pts.push({ a, x: cx + r * Math.cos(a), y: cy - r * Math.sin(a), r }); } });
   pts.sort((p, q) => q.a - p.a || p.r - q.r);
-  const seatR = Math.min(opts.maxR || 14, (R - r0) / Math.max(1, rows) * 0.42 + 1.5, Math.PI * r0 / Math.max(1, per[0]) * 0.42);
   let s = `<svg class="hemi" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
-  s += `<path d="M${cx - R - 6} ${cy} A${R + 6} ${R + 6} 0 0 1 ${cx + R + 6} ${cy}" fill="none" stroke="#ffffff10" stroke-width="1"/>`;
   pts.forEach((p, i) => {
     const f = fill[i];
     if (f) {
-      s += `<g ${f.id ? `data-seat="${f.id}"` : ''}><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${seatR.toFixed(1)}" fill="${f.color}" stroke="${f.stroke || '#000'}" stroke-width="${f.stroke ? 1.4 : .6}"/>`;
-      if (f.label && seatR > 7) s += `<text x="${p.x.toFixed(1)}" y="${(p.y + seatR * 0.35).toFixed(1)}" font-size="${(seatR * 0.85).toFixed(1)}" text-anchor="middle" fill="#fff" font-family="Inter" font-weight="700">${esc(f.label)}</text>`;
+      s += `<g ${f.id ? `data-seat="${f.id}"` : ''}><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${seatR.toFixed(1)}" fill="${f.color}" stroke="${f.stroke || '#000'}" stroke-width="${f.stroke ? 1.6 : .6}"/>`;
+      if (f.label && seatR > 7) s += `<text x="${p.x.toFixed(1)}" y="${(p.y + seatR * 0.32).toFixed(1)}" font-size="${(seatR * 0.8).toFixed(1)}" text-anchor="middle" fill="#fff" font-family="Inter" font-weight="700">${esc(f.label)}</text>`;
       s += `</g>`;
     } else s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(seatR * 0.85).toFixed(1)}" fill="none" stroke="#ffffff38" stroke-width="1" stroke-dasharray="2 1.5"/>`;
   });
-  if (opts.center) s += `<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="${W / 11}" fill="#eadfca" font-family="Fell, serif">${esc(opts.center)}</text>`;
-  if (opts.sub) s += `<text x="${cx}" y="${cy - 4 - W / 11}" text-anchor="middle" font-size="${W / 30}" fill="#948a78" font-family="Inter" letter-spacing="1">${esc(opts.sub)}</text>`;
+  const fs = Math.min(W / 15, r0 * 0.22);
+  if (opts.center) s += `<text x="${cx}" y="${cy - 2}" text-anchor="middle" font-size="${fs.toFixed(1)}" fill="#eadfca" font-family="Fell, serif">${esc(opts.center)}</text>`;
+  if (opts.sub) s += `<text x="${cx}" y="${(cy - 4 - fs).toFixed(1)}" text-anchor="middle" font-size="${(fs * 0.32).toFixed(1)}" fill="#948a78" font-family="Inter" letter-spacing="1">${esc(opts.sub)}</text>`;
   return s + '</svg>';
 }
 

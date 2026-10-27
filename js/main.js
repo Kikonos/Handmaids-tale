@@ -1,5 +1,5 @@
 // Gilead: Under His Eye — application controller.
-import { newGame, fmtDate, fmtNum, gileadPop, infiltration, seated, VERSION, VERSION_NAME, M, STATES } from './engine/core.js';
+import { newGame, fmtDate, fmtNum, gileadPop, infiltration, seated, inTraining, VERSION, VERSION_NAME, M, STATES } from './engine/core.js';
 import { tick } from './engine/sim.js';
 import * as A from './engine/actions.js';
 import { resolveEvent, choiceAvailable } from './engine/events.js';
@@ -30,6 +30,7 @@ function boot() {
   document.addEventListener('visibilitychange', () => { if (document.hidden && app.G) { saveGame(app.G, 'auto'); app.G.paused = true; } });
   document.addEventListener('gesturestart', e => e.preventDefault());
   requestAnimationFrame(loop);
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 function titleHTML() {
@@ -117,8 +118,9 @@ function processNotes() {
 // ---------------- Rendering ----------------
 function renderAll() { renderHud(); renderNav(); renderMapUi(); refreshPanels(true); app.map.render(app.G); }
 
-function chip(icon, val, label, bar, color, alert) {
-  return `<div class="chip ${alert ? 'alert' : ''}"><span class="ic">${icon}</span><span class="v"><b>${val}</b><small>${label}</small>${bar != null ? `<span class="bar"><i style="width:${Math.max(0, Math.min(100, bar))}%;--c:${color}"></i></span>` : ''}</span></div>`;
+function chip(icon, val, label, bar, color, alert, delta) {
+  const d = delta == null ? '' : `<em class="dl ${delta >= 0 ? 'good' : 'bad'}">${delta >= 0 ? '+' : ''}${Math.abs(delta) >= 10 ? Math.round(delta) : delta.toFixed(1)}</em>`;
+  return `<div class="chip ${alert ? 'alert' : ''}" title="${label}"><span class="ic">${icon}</span><span class="v"><b>${val}${d}</b><small>${label}</small>${bar != null ? `<span class="bar"><i style="width:${Math.max(0, Math.min(100, bar))}%;--c:${color}"></i></span>` : ''}</span></div>`;
 }
 function renderHud() {
   const G = app.G; if (!G) return;
@@ -129,19 +131,21 @@ function renderHud() {
       chip('🎖', infiltration(G).toFixed(0) + '%', 'Military', infiltration(G) / 0.35, '#4a6fa5') + chip('🕵', Math.round(r.suspicion) + '%', 'FBI suspicion', r.suspicion, r.suspicion > 70 ? '#d6503f' : '#d9a43a', r.suspicion > 75);
   } else {
     const net = (G._income || 0) - (G._upkeep || 0);
-    chips = chip('⚖', fmtNum(r.power), 'Power') + chip('₲', fmtNum(r.treasury) + 'M', `Treasury ${net >= 0 ? '+' : ''}${net.toFixed(1)}/d`, null, null, r.treasury < 0) +
-      chip('🌾', fmtNum(r.supplies), `Supplies ${(G._supplyNet || 0) >= 0 ? '+' : ''}${(G._supplyNet || 0).toFixed(1)}`, null, null, r.supplies < 20) +
+    chips = chip('⚖', fmtNum(r.power), 'Power') + chip('₲', fmtNum(r.treasury) + 'M', 'Treasury', null, null, r.treasury < 0, net) +
+      chip('🌾', fmtNum(r.supplies), 'Supplies', null, null, r.supplies < 20, G._supplyNet || 0) +
       chip('🏛', Math.round(r.stability), 'Stability', r.stability, '#7fae6a', r.stability < 20) + chip('✝', Math.round(r.piety), 'Piety', r.piety, '#c9a227') +
       chip('👁', Math.round(r.fear), 'Fear', r.fear, '#b3202a') + chip('🌐', Math.round(r.standing), 'Standing', (r.standing + 100) / 2, '#6f8ab8') +
-      chip('📻', Math.round(r.resistance), 'Mayday', r.resistance, '#d6503f', r.resistance > 70) + chip('👶', fmtNum(G.pop.birthsYear), 'Births/yr');
+      chip('📻', Math.round(r.resistance), 'Mayday', r.resistance, '#d6503f', r.resistance > 70);
   }
   const sp = G.paused ? 0 : G.speed;
-  $('#topbar').innerHTML = `${seal(38, P0.accent)}<div class="brand"><span class="ph">${P0.name}</span><span class="sub">${P0.sub}</span></div>
-    <div class="date num">${fmtDate(G.day)}</div>
+  $('#topbar').innerHTML = `${seal(38, P0.accent)}<div class="brand"><span class="ph">${P0.name}</span><span class="date num">${fmtDate(G.day)}</span></div>
     <div class="speed"><button class="pause ${sp === 0 ? 'on' : ''}" data-act="speed" data-arg="0">❚❚</button>${[1, 2, 4].map(s => `<button class="${sp === s ? 'on' : ''}" data-act="speed" data-arg="${s}">${s}×</button>`).join('')}</div>
     <div class="res">${chips}</div>`;
   renderTicker();
-  if (app._navPhase !== G.phase || app._navQ !== G.events.queue.length) renderNav();
+  if (G.phase > 0 && G.day % 5 === 0) G._trainCache = inTraining(G);
+  renderCensus();
+  if (app._navPhase !== G.phase) { renderNav(); renderMapUi(); }
+  else if (app._navQ !== G.events.queue.length) renderNav();
 }
 const NAV = [
   ['map', '🗺', 'Map'], ['plot', '🕯', 'The Plot', G => G.phase === 0], ['war', '⚔', 'War', G => G.phase > 0], ['pop', '👥', 'People'],
@@ -173,7 +177,28 @@ function renderMapUi() {
   $('#map-ui').innerHTML = `<div class="modes">${modes.map(([k, l]) => `<button class="${m === k ? 'on' : ''}" data-act="mapmode" data-arg="${k}">${l}</button>`).join('')}</div>
     <div class="legend">${legend}</div>
     <div class="mapbtns"><button data-act="zoom" data-arg="in">＋</button><button data-act="zoom" data-arg="out">－</button><button data-act="zoom" data-arg="reset">⌂</button></div>
+    <div class="census" id="census"></div>
     <div class="vignette"></div>`;
+  renderCensus();
+}
+function renderCensus() {
+  const G = app.G, el = document.getElementById('census');
+  if (!G || !el) return;
+  const row = (fig, label, v, extra = '') => `<div class="crow">${fig ? figure(fig, 13, 20) : ''}<span>${label}</span><b>${v}</b>${extra}</div>`;
+  let h;
+  if (G.phase === 0) {
+    const cr = A.coupReady(G);
+    h = `<div class="ctitle">Sons of Jacob</div>` + row('', 'Members', fmtNum(G.res.members)) + row('', 'Chapters', Object.values(G.st).filter(s => s.chapter > 0).length + ' states') +
+      row('', 'Committee', seated(G).length + '/12') + row('', 'Three Strikes', Math.round(cr.avg) + '%');
+  } else {
+    const cl = G.pop.cls, tr = G._trainCache || {};
+    const t = k => tr[k] ? `<i>+${fmtNum(tr[k])}</i>` : '';
+    h = `<div class="ctitle">Census · ${fmtNum(gileadPop(G))}</div>` + row('handmaid', 'Handmaids', fmtNum(cl.handmaids), t('handmaids')) + row('wife', 'Wives', fmtNum(cl.wives)) +
+      row('martha', 'Marthas', fmtNum(cl.marthas), t('marthas')) + row('aunt', 'Aunts', fmtNum(cl.aunts), t('aunts')) + row('guardian', 'Guardians', fmtNum(cl.guardians), t('guardians')) +
+      row('eye', 'Eyes', fmtNum(cl.eyes), t('eyes')) + row('unwoman', 'Unwomen', fmtNum(cl.unwomen)) + row('', '👶 Births / yr', fmtNum(G.pop.birthsYear)) +
+      row('', '⏳ Unprocessed', fmtNum(G.pop.men + G.pop.women + G.pop.fertile + G.pop.children));
+  }
+  if (el.innerHTML !== h) el.innerHTML = h;
 }
 
 const SCREENS = { plot: P.plotScreen, pop: P.popScreen, cmd: P.cmdScreen, council: P.councilScreen, decrees: P.decreeScreen, war: P.warScreen, goals: P.goalScreen, log: P.logScreen, settings: settingsScreen };

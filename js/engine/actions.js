@@ -70,7 +70,7 @@ export function growChapter(G, ab) {
   if (!canAfford(G, cost)) return no('Not enough funds');
   pay(G, cost);
   const first = s.chapter === 0;
-  const gain = Math.round(11 + STATES[ab].faith * 18);
+  const gain = Math.max(4, Math.round((9 + STATES[ab].faith * 14) / Math.max(1, Math.sqrt(STATES[ab].pop / 6))));
   s.chapter = Math.min(100, s.chapter + gain);
   const m = Math.round(STATES[ab].pop * STATES[ab].faith * 300 + 400);
   add(G, 'members', m); add(G, 'suspicion', 0.45 + STATES[ab].pop / 60);

@@ -119,7 +119,7 @@ function populationTick(G) {
   // Older econowives / failed Handmaids also drift into the Unwomen
   const kids = p.children * 0.004 * adm; p.children -= kids; cl.econochildren += kids;
   // The elite
-  const cmdT = total * 0.00022;
+  const cmdT = total * 0.0001;
   const dc = (cmdT - cl.commanders) * 0.015;
   if (dc > 0 && cl.economen > dc) { cl.commanders += dc; cl.economen -= dc; }
   const wT = cl.commanders * 0.9 - cl.wives;

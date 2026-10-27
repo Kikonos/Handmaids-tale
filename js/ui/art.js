@@ -97,7 +97,7 @@ export function figure(kind, w = 34, h = 54) {
 export function portrait(id, name, faction, stars = 1, dead = false) {
   let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const hair = ['#2b2118', '#4a3a2a', '#777', '#9a9a9a', '#3a2a1a'][h % 5];
-  const skin = ['#d9b99b', '#c9a183', '#e2c3a5', '#b98a6a'][(h >> 3) % 4];
+  const skin = ['#d9b99b', '#c9a183', '#e2c3a5', '#b98a6a'][(h >>> 3) % 4];
   const bg = faction === 'hard' ? '#3a0d0f' : '#1d2a33';
   const jaw = 10 + (h % 3);
   const initials = name.replace(/Commander /, '').split(' ').map(s => s[0]).join('').slice(0, 2);
@@ -108,8 +108,10 @@ export function portrait(id, name, faction, stars = 1, dead = false) {
     <text x="50" y="12" font-size="9" text-anchor="end" fill="#ffffff22" font-family="serif">${initials}</text>
     <path d="M6 64 Q8 46 27 44 Q46 46 48 64Z" fill="#111"/>
     <path d="M23 44 L27 54 L31 44Z" fill="#ddd"/><path d="M26 46 L27 56 L28 46Z" fill="#7a1a1a"/>
-    <ellipse cx="27" cy="28" rx="${jaw}" ry="13" fill="${skin}"/>
-    <path d="M${27 - jaw} 25 Q27 ${8 + (h % 4)} ${27 + jaw} 25 L${27 + jaw} 20 Q27 10 ${27 - jaw} 20Z" fill="${hair}"/>
+    <ellipse cx="27" cy="${21 - (h % 3)}" rx="${jaw + 1.5}" ry="10" fill="${hair}"/>
+    <rect x="${25}" y="38" width="4" height="7" fill="${skin}"/>
+    <ellipse cx="27" cy="29" rx="${jaw}" ry="12.5" fill="${skin}"/>
+    <path d="M${27 - jaw} 25 Q27 ${15 + (h % 4)} ${27 + jaw} 25 Q${27 + jaw} ${17 - (h % 2) * 2} 27 ${16 - (h % 3)} Q${27 - jaw} ${17 - (h % 2) * 2} ${27 - jaw} 25Z" fill="${hair}"/>
     <rect x="${21}" y="27" width="3" height="1.4" fill="#222"/><rect x="${30}" y="27" width="3" height="1.4" fill="#222"/>
     <path d="M23 36 Q27 ${37 + (h % 2)} 31 36" stroke="#5a3a2a" stroke-width="1" fill="none"/>
     ${st}${dead ? '<path d="M0 0 L54 64 M54 0 L0 64" stroke="#b3202a" stroke-width="2" opacity=".7"/>' : ''}
