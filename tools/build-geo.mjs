@@ -34,6 +34,7 @@ let world = load('world-atlas/countries-50m.json');
 world = presimplify(world);
 world = simplify(world, quantile(world, 0.3));
 const countries = feature(world, world.objects.countries).features;
+const geomsW = world.objects.countries.geometries;
 // Densify long edges in lon/lat so straight borders (the 49th parallel) project as curves, not chords.
 const densify = ring => {
   const out = [];
@@ -52,6 +53,12 @@ for (const f of countries) {
   if (g.type === 'MultiPolygon') g.coordinates = g.coordinates.map(p => p.map(densify));
 }
 const ctx = {};
+const nameOf = g => g.properties && g.properties.name;
+const borderOf = (a, b) => {
+  const m = mesh(world, world.objects.countries, (x, y) => (nameOf(x) === a && nameOf(y) === b) || (nameOf(x) === b && nameOf(y) === a));
+  m.coordinates = m.coordinates.map(densify);
+  return round(ctxPath(m) || '');
+};
 for (const [key, name] of [['canada', 'Canada'], ['mexico', 'Mexico'], ['cuba', 'Cuba'], ['bahamas', 'Bahamas']]) {
   const f = countries.find(c => c.properties.name === name);
   if (f) ctx[key] = round(ctxPath(f) || '');
@@ -142,6 +149,8 @@ export const STATE_SHAPES = ${JSON.stringify(states)};
 export const STATE_BORDERS = ${JSON.stringify(borders)};
 export const NATION_OUTLINE = ${JSON.stringify(nation)};
 export const CONTEXT_LAND = ${JSON.stringify(ctx)};
+export const CANADA_BORDER = ${JSON.stringify(borderOf('Canada', 'United States of America'))};
+export const MEXICO_BORDER = ${JSON.stringify(borderOf('Mexico', 'United States of America'))};
 export const CITY_POS = ${JSON.stringify(cities)};
 export const FOREIGN_CITIES = ${JSON.stringify(foreign)};
 `;
