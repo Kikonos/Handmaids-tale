@@ -1,0 +1,19 @@
+{
+  "name": "gilead-under-his-eye",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gilead: Under His Eye — a grand strategy game set in the world of Hulu's The Handmaid's Tale",
+  "type": "module",
+  "scripts": {
+    "build:geo": "node tools/build-geo.mjs",
+    "test": "node tests/sim.test.mjs",
+    "serve": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "d3-geo": "^3.1.1",
+    "topojson-client": "^3.1.0",
+    "topojson-simplify": "^3.0.3",
+    "us-atlas": "^3.0.1",
+    "world-atlas": "^2.0.2"
+  }
+}
