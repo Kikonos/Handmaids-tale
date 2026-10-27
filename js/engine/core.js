@@ -183,7 +183,7 @@ export function annex(G, ab, silent = false) {
   const p = G.pop;
   p.men += n * 0.375; p.children += n * 0.235;
   const women = n * 0.39;
-  p.fertile += women * 0.013; p.women += women * 0.987;
+  p.fertile += women * 0.004; p.women += women * 0.996;
   if (!silent) { log(G, `${STATES[ab].name} is brought under the Republic. ${fmtNum(n)} souls to be processed.`, 'war', ab); fx(G, 'annex', { st: ab }); }
 }
 export function loseState(G, ab) {

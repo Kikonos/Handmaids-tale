@@ -234,8 +234,15 @@ export function createMap(root, ctx) {
     gBld.textContent = '';
     const byCity = {};
     for (const b of G.bld) (byCity[b.city] || (byCity[b.city] = [])).push(b);
+    const zoomedIn = 1040 / vb.w > 1.45;
     for (const [city, list] of Object.entries(byCity)) {
       const c = CITY_POS[city];
+      if (!zoomedIn) {
+        const busy = list.some(b => b.done != null);
+        el('circle', { cx: c.x + 6, cy: c.y - 6, r: 4.2, fill: '#7a1419', stroke: busy ? '#c9a227' : '#eadfca', 'stroke-width': .7, 'stroke-dasharray': busy ? '1.5 1' : '' }, gBld);
+        const t = el('text', { x: c.x + 6, y: c.y - 5.7, class: 'bldicon', fill: '#fff', 'font-weight': 700, 'font-family': 'Inter', 'font-size': 5.5 }, gBld); t.textContent = list.length;
+        continue;
+      }
       list.slice(0, 8).forEach((b, i) => {
         const a = -Math.PI / 2 + i * (Math.PI * 2 / Math.min(8, list.length + (list.length < 3 ? 2 : 0)));
         const x = c.x + Math.cos(a) * 8.5, y = c.y + Math.sin(a) * 8.5;

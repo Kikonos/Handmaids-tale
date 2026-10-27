@@ -101,7 +101,7 @@ function loop(now) {
     if (now - app.lastMap > 300) { app.map.render(G); app.lastMap = now; }
     if (now - app.lastHud > 250) { renderHud(); app.lastHud = now; }
     if (now - app.lastPanel > 1000) { refreshPanels(); app.lastPanel = now; }
-  } else if (G && G.outcome && !app.modal && !G._endShown) { G._endShown = true; showEnd(); }
+  } else if (G && G.outcome && !app.modal && !G._endShown) { G._endShown = true; renderHud(); showEnd(); }
   requestAnimationFrame(loop);
 }
 
@@ -133,11 +133,11 @@ function renderHud() {
   const r = G.res, P0 = PHASES[G.phase];
   let chips;
   if (G.phase === 0) {
-    chips = chip('💰', '$' + fmtNum(r.funds) + 'M', 'Funds') + chip('🗣', fmtNum(r.influence), 'Influence') + chip('✝', fmtNum(r.members), 'Members') +
+    chips = chip('💰', '$' + fmtNum(r.funds * 1e6), 'Funds') + chip('🗣', fmtNum(r.influence), 'Influence') + chip('✝', fmtNum(r.members), 'Members') +
       chip('🎖', infiltration(G).toFixed(0) + '%', 'Military', infiltration(G) / 0.35, '#4a6fa5') + chip('🕵', Math.round(r.suspicion) + '%', 'FBI suspicion', r.suspicion, r.suspicion > 70 ? '#d6503f' : '#d9a43a', r.suspicion > 75);
   } else {
     const net = (G._income || 0) - (G._upkeep || 0);
-    chips = chip('⚖', fmtNum(r.power), 'Power') + chip('₲', fmtNum(r.treasury) + 'M', 'Treasury', null, null, r.treasury < 0, net) +
+    chips = chip('⚖', fmtNum(r.power), 'Power') + chip('₲', fmtNum(r.treasury * 1e6), 'Treasury', null, null, r.treasury < 0, net) +
       chip('🌾', fmtNum(r.supplies), 'Supplies', null, null, r.supplies < 20, G._supplyNet || 0) +
       chip('🏛', Math.round(r.stability), 'Stability', r.stability, '#7fae6a', r.stability < 20) + chip('✝', Math.round(r.piety), 'Piety', r.piety, '#c9a227') +
       chip('👁', Math.round(r.fear), 'Fear', r.fear, '#b3202a') + chip('🌐', Math.round(r.standing), 'Standing', (r.standing + 100) / 2, '#6f8ab8') +
@@ -266,6 +266,7 @@ function modal(html, cls = '') {
 function closeModal() {
   app.modal = null; $('#modal-root').innerHTML = '';
   const G = app.G;
+  if (G && G.day === 0 && !G._hinted) { G._hinted = true; setTimeout(() => toast('Tap a state to found your first Sons of Jacob chapter. Then press 1× to let time run.', 'good'), 400); }
   if (G && G._wasRunning && !G.outcome && !G.events.queue.some(q => EVENT_BY_ID[q.id].urgent)) { G._wasRunning = false; G.paused = false; } if (app.G) { refreshPanels(true); renderHud(); app.map.render(app.G); } }
 
 function openEvent(uid) {
