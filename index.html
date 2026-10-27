@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gilead">
+<meta name="theme-color" content="#0b0a09">
+<meta name="description" content="Gilead: Under His Eye — a grand strategy game set in the world of The Handmaid's Tale.">
+<title>Gilead: Under His Eye</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="rotate"><div><div class="rot-icon">⟲</div><p>Gilead is played in landscape.<br>Please rotate your iPad.</p></div></div>
+<div id="app" class="hidden">
+  <header id="topbar"></header>
+  <nav id="nav"></nav>
+  <main id="main">
+    <div id="map"></div>
+    <div id="map-ui"></div>
+    <aside id="drawer" class="closed"></aside>
+    <section id="screen" class="closed"></section>
+  </main>
+  <footer id="ticker"></footer>
+</div>
+<div id="modal-root"></div>
+<div id="toasts"></div>
+<div id="title"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
