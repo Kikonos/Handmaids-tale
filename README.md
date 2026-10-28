@@ -1,6 +1,6 @@
 # Gilead: Under His Eye
 
-**v1.2.0 "Praise Be"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
+**v1.3.0 "Nolite Te Bastardes"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
 
 You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the United States, carry out the Three Strikes, and then build, run and defend the Republic of Gilead through six eras that follow the show's arc:
 
@@ -12,6 +12,13 @@ You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the
 | 4 | **The War** | Take Chicago, live under sanctions, face Angels' Flight and the Waterfords' arrest in Toronto. |
 | 5 | **New Bethlehem** | Run Lawrence's soft-power reform, or spring the hardliners' trap. |
 | 6 | **The Reckoning** | Survive the wedding, hold Boston for a year and rule from sea to sea. |
+
+## What's new in v1.3 "Nolite Te Bastardes"
+
+- **3D institutions on the map.** Each of the 18 institution types has its own isometric miniature: the red-brick Rachel and Leah Center with its clock tower, the classical portico of Ardua Hall, quonset-hut barracks, the black tower of the Eyes, the Wall with its hanging condemned, the domed Prayvaganza arena, airfields, rail yards, colonies and New Bethlehem's island. Zoomed out, each city shows its principal institution with a count; zoomed in, every institution stands on a small isometric block. Buildings under construction appear in scaffolding with a crane. The same models appear in the city panel, the build list, the People screen, info sheets and the Codex.
+- **The Advisor.** A new map-toolbar button opens a national list of what to build and where, with numbered gold markers on the map. Each recommendation comes with its reason: fertile women waiting, Red Centres short of Aunts, Commander households without Marthas, Mayday, detainees, Unwomen held in camps with no colony to work in, falling supplies, fronts without a Rail Depot or Airfield in range, and babies lost for want of Birthing Houses. It warns when upkeep outruns income, when supplies run out and when standing blocks New Bethlehem, and it advises taking down Walls that cost the Republic its standing. Every city you hold also lists its best options under **Recommended here**.
+- **Replace and upgrade.** Any institution can be replaced with another (salvaging a quarter of its cost, or half if it is unfinished), or upgraded to its purpose-built version while keeping its name and trainees.
+- Map labels and markers no longer balloon when you zoom in, and the zoom buttons move aside when a panel is open.
 
 ## What's new in v1.2 "Praise Be"
 

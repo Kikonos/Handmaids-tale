@@ -98,7 +98,8 @@ export function createMap(root, ctx) {
     const t = el('text', { x: 4, y: -3.5 }, g); t.textContent = c.name;
     cityEls[id] = g;
   }
-  const gBld = el('g', { 'pointer-events': 'none' }, world);
+  const gBld = el('g', { class: 'blds' }, world);
+  const gHint = el('g', { 'pointer-events': 'none' }, world);
   const gPins = el('g', {}, world);
   const gSel = el('g', { 'pointer-events': 'none' }, world);
 
@@ -111,6 +112,7 @@ export function createMap(root, ctx) {
     clampView();
     svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
     const z = 1040 / vb.w;
+    svg.style.setProperty('--lz', (1 / Math.pow(Math.max(1, z), 0.7)).toFixed(3)); // labels grow slowly with zoom
     const on = z > 1.35;
     if (on !== labelsOn) { labelsOn = on; gCities.querySelectorAll('.city:not(.cap) text').forEach(t => { t.style.display = on ? '' : 'none'; }); }
     const zi = z > 1.45;
@@ -209,7 +211,8 @@ export function createMap(root, ctx) {
     if (s.hold <= 0.5) return COL.usa;
     return mix('1b2940', '6a1a20', s.hold / 100);
   }
-  const lastFill = {}, lastSig = { pins: '', bld: '', ops: '' };
+  const lastFill = {}, lastSig = { pins: '', bld: '', ops: '', hints: '' };
+  let hints = [];
   function render(G) {
     for (const ab of Object.keys(paths)) {
       const f = stateFill(G, ab);
@@ -237,30 +240,53 @@ export function createMap(root, ctx) {
       g.classList.toggle('held', !!meta && G.phase > 0 && isHeld(G, meta.st));
     }
     // institutions (rebuilt only when they change)
-    const bsig = (zoomedIn ? 'z' : 'o') + G.bld.map(b => b.uid + (b.done == null ? 'd' : 'c')).join(',');
+    const bsig = (zoomedIn ? 'z' : 'o') + G.bld.map(b => b.uid + b.type + (b.done == null ? 'd' : 'c')).join(',');
     if (bsig !== lastSig.bld) {
       lastSig.bld = bsig;
       gBld.textContent = '';
       const byCity = {};
       for (const b of G.bld) (byCity[b.city] || (byCity[b.city] = [])).push(b);
-      for (const [city, list] of Object.entries(byCity)) {
+      // Isometric 3D miniatures. Zoomed out: the city's principal institution with a count badge.
+      // Zoomed in: every institution, laid out on a small isometric grid behind the city.
+      const drawModel = (g, b, x, y, size) => {
+        const a = { x: x - size / 2, y: y - size * 40 / 52, width: size, height: size };
+        if (b.done != null) { el('use', { href: `#m-${b.type}`, ...a, opacity: .4 }, g); el('use', { href: '#m-scaffold', ...a }, g); }
+        else el('use', { href: `#m-${b.type}`, ...a }, g);
+      };
+      const cities = Object.entries(byCity).sort((p, q) => CITY_POS[p[0]].y - CITY_POS[q[0]].y);
+      for (const [city, list] of cities) {
         const c = CITY_POS[city];
+        const g = el('g', { class: 'bld', 'data-city': city }, gBld);
         if (!zoomedIn) {
-          const busy = list.some(b => b.done != null);
-          const g = el('g', { class: 'bld' }, gBld);
-          el('rect', { x: c.x + 2.5, y: c.y - 11, width: 9, height: 7.5, rx: 2.2, fill: '#e5484d', stroke: busy ? '#d9b566' : '#07080a', 'stroke-width': .7 }, g);
-          const t = el('text', { x: c.x + 7, y: c.y - 5.4, 'text-anchor': 'middle', 'font-size': 5.4, 'font-weight': 700, 'font-family': 'JetBrains Mono, monospace', fill: '#fff' }, g); t.textContent = list.length;
+          const main = list.find(b => b.done == null && BUILDINGS[b.type].from) || list.find(b => b.done == null) || list[0];
+          drawModel(g, main, c.x + 9, c.y + 0.5, 27);
+          if (list.length > 1) {
+            el('rect', { x: c.x + 15, y: c.y - 19, width: 7.4, height: 6.4, rx: 2.2, fill: '#e5484d', stroke: list.some(b => b.done != null) ? '#d9b566' : '#07080a', 'stroke-width': .6 }, g);
+            const t = el('text', { x: c.x + 18.7, y: c.y - 14.2, 'text-anchor': 'middle', 'font-size': 4.6, 'font-weight': 700, 'font-family': 'JetBrains Mono, monospace', fill: '#fff' }, g); t.textContent = list.length;
+          }
           continue;
         }
-        list.slice(0, 8).forEach((b, i) => {
-          const a = -Math.PI / 2 + i * (Math.PI * 2 / Math.max(5, list.length));
-          const x = c.x + Math.cos(a) * 9, y = c.y + Math.sin(a) * 9;
-          const B = BUILDINGS[b.type];
-          const g = el('g', { class: 'bld' }, gBld);
-          el('rect', { x: x - 3.6, y: y - 3.6, width: 7.2, height: 7.2, rx: 2, fill: '#0c0e12', stroke: B.color, 'stroke-width': .7, 'stroke-dasharray': b.done != null ? '1.4 1' : '' }, g);
-          useIcon(B.icon, x, y, 5, g, B.color);
-        });
+        const size = 14, tw = size * 35 / 52; // a tile's on-screen width
+        const n = Math.min(list.length, 8), cols = n <= 4 ? 2 : 3;
+        const cells = list.slice(0, 8).map((b, k) => ({ b, i: k % cols, j: Math.floor(k / cols) }));
+        const pos = cells.map(q => ({ ...q, x: (q.i - q.j) * tw / 2, y: (q.i + q.j) * tw / 4 }));
+        const maxY = Math.max(...pos.map(q => q.y)), midX = (Math.max(...pos.map(q => q.x)) + Math.min(...pos.map(q => q.x))) / 2;
+        pos.sort((p, q) => (p.i + p.j) - (q.i + q.j) || p.i - q.i);
+        for (const q of pos) drawModel(g, q.b, c.x + 6 + q.x - midX, c.y - 3.5 + q.y - maxY, size);
       }
+    }
+    // advisor highlights
+    const zf = 1 / Math.pow(Math.max(1, 1040 / vb.w), 0.7); // markers grow slowly with zoom
+    const hsig = hints.join(',') + '|' + zf.toFixed(2);
+    if (hsig !== lastSig.hints) {
+      lastSig.hints = hsig;
+      gHint.textContent = '';
+      hints.forEach((id, k) => {
+        const c = CITY_POS[id]; if (!c) return;
+        el('circle', { cx: c.x, cy: c.y, r: 7 * zf, class: 'hintring' }, gHint);
+        el('circle', { cx: c.x, cy: c.y, r: 3.4 * zf, fill: '#d9b566', stroke: '#07080a', 'stroke-width': .6 * zf }, gHint);
+        const t = el('text', { x: c.x, y: c.y + 1.5 * zf, 'text-anchor': 'middle', 'font-size': 4.2 * zf, 'font-weight': 800, 'font-family': 'JetBrains Mono, monospace', fill: '#1a1405' }, gHint); t.textContent = k + 1;
+      });
     }
     // operations & supply lines
     const osig = G.ops.map(o => o.st + (supplied(G, o.st) ? 's' : '')).join(',') + '|' + Object.values(G.st).map(s => s.hold >= 99.5 ? 1 : 0).join('');
@@ -304,7 +330,8 @@ export function createMap(root, ctx) {
     gSel.textContent = '';
     if (selected && CITY_POS[selected]) {
       const c = CITY_POS[selected];
-      el('circle', { cx: c.x, cy: c.y, r: 11, fill: 'none', stroke: '#fff', 'stroke-width': 1, 'stroke-dasharray': '2.5 2', opacity: .8 }, gSel);
+      const zs = 1 / Math.pow(Math.max(1, 1040 / vb.w), 0.6);
+      el('circle', { cx: c.x, cy: c.y, r: 11 * zs, fill: 'none', stroke: '#fff', 'stroke-width': zs, 'stroke-dasharray': `${2.5 * zs} ${2 * zs}`, opacity: .8 }, gSel);
     }
   }
 
@@ -443,6 +470,7 @@ export function createMap(root, ctx) {
     setMode(m) { mode = m; for (const k in lastFill) delete lastFill[k]; },
     getMode: () => mode,
     select(id) { selected = id; },
+    highlight(ids = []) { hints = ids; },
     // Pan so a state/city isn't hidden under a panel docked on the right (rightPad screen px).
     ensureVisible(id, rightPad = 0) {
       const c = CITY_POS[id] || (SHAPE[id] ? centroidOf(id) : null);

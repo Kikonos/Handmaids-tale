@@ -33,6 +33,8 @@ export const ICONS = {
   alert: '<path d="M10.3 4.2L2.8 17.5A2 2 0 0 0 4.5 20.5h15a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4.5M12 17v.2"/>',
   info: '<circle cx="12" cy="12" r="8.8"/><path d="M12 11v5.5M12 7.8v.2"/>',
   help: '<circle cx="12" cy="12" r="8.8"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4M12 16.8v.2"/>',
+  bulb: '<path d="M9.2 18h5.6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1 1.2 1 2v.2h5.2v-.2c0-.8.3-1.5 1-2A6 6 0 0 0 12 3z"/>',
+  swap: '<path d="M4 8.5h14.5L15 5M20 15.5H5.5L9 19"/>',
   search: '<circle cx="10.8" cy="10.8" r="6"/><path d="M15.3 15.3L20 20"/>',
   'arrow-left': '<path d="M19 12H5M11 6l-6 6 6 6"/>',
   'arrow-up': '<path d="M12 19V5M6.5 10.5L12 5l5.5 5.5"/>',

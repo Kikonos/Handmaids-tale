@@ -3,7 +3,7 @@
 // 'dec:d_ceremony', 'cmd:lawrence', 'goal:g_book', 'era:2', 'pf:adm', 'dist:capital', 'pool:fertile',
 // 'plot:sermon', 'term:mayday'). codexScreen(G, q, cat) is the searchable index of all of them.
 import {
-  STATES, DISTRICTS, COMMANDERS, BUILDINGS, fmtNum, fmtDate, gileadPop, inTraining, infiltration, seated,
+  STATES, CITIES, DISTRICTS, COMMANDERS, BUILDINGS, fmtNum, fmtDate, gileadPop, inTraining, infiltration, seated,
   councilFill, districtCap, M, HIGH_COUNCIL_SEATS, COMMITTEE_SEATS,
 } from '../engine/core.js';
 import * as A from '../engine/actions.js';
@@ -17,6 +17,8 @@ import { CODEX_CATS, MECH, TERMS, CLASS_HOW, POOL_HOW, BLD_EFFECT, PLOT_INFO } f
 import { CLASS_INFO, POOL_INFO, figure, portrait } from './art.js';
 import { meter, fxChips, esc } from './widgets.js';
 import { icon } from './icons.js';
+import { model } from './models.js';
+import { recommendForCity } from '../engine/advisor.js';
 
 const C = { red: '#e5484d', gold: '#d9b566', blue: '#5b8def', green: '#3dd68c', amber: '#ffb224', violet: '#9e8cfc', slate: '#8d95a3' };
 const DEC = Object.fromEntries(DECREES.map(d => [d.id, d]));
@@ -129,7 +131,7 @@ export function entryOf(key) {
     case 'term': return TERMS[id] && { ...TERMS[id], color: C.red };
     case 'class': return CLASS_INFO[id] && { icon: 'users', title: CLASS_INFO[id].label, summary: CLASS_INFO[id].desc, color: CLASS_INFO[id].color, cat: 'classes', fig: CLASS_INFO[id].fig };
     case 'pool': return POOL_HOW[id] && { icon: 'hourglass', title: POOL_HOW[id][0], summary: POOL_HOW[id][1], color: C.slate, cat: 'classes' };
-    case 'bld': return BUILDINGS[id] && { icon: BUILDINGS[id].icon, title: BUILDINGS[id].label, summary: BUILDINGS[id].desc, color: BUILDINGS[id].color, cat: 'inst' };
+    case 'bld': return BUILDINGS[id] && { icon: BUILDINGS[id].icon, title: BUILDINGS[id].label, summary: BUILDINGS[id].desc, color: BUILDINGS[id].color, cat: 'inst', model: id };
     case 'dec': return DEC[id] && { icon: 'scroll', title: DEC[id].name, summary: DEC[id].desc, color: C.gold, cat: 'decrees' };
     case 'era': return PHASES[+id] && { icon: 'layers', title: PHASES[+id].name, summary: PHASES[+id].sub, color: C.red };
     case 'goal': { const g = GOALS.find(x => x.id === id); return g && { icon: g.key ? 'star-fill' : 'target', title: g.name, summary: g.hint, color: C.gold }; }
@@ -174,6 +176,7 @@ export function infoSheet(G, key, canBack = false) {
   } else if (p === 'bld') {
     const B = BUILDINGS[id];
     kicker = 'Institution';
+    tile = model(id);
     body += `<p class="ilead">${B.desc}</p>`;
     body += section('bolt', 'What it does', BLD_EFFECT[id] || '');
     const unl = B.unlock ? DEC[B.unlock] : null;
@@ -187,6 +190,13 @@ export function infoSheet(G, key, canBack = false) {
     body += section('layers', 'Versions', `<div class="itiers">${B.tiers.map(T => `<div><b>${T.name}</b><span>₲${T.cost}M · ${T.build} days to build${T.cap ? ` · ${B.housing ? 'houses ' + fmtNum(T.cap) : fmtNum(T.cap) + ' per ' + T.days + '-day course'}` : ''}${T.upkeep ? ` · upkeep ₲${T.upkeep}M/day` : ''}</span>${T.unlock ? `<small>${icon('lock')}Needs ${DEC[T.unlock]?.name}</small>` : ''}</div>`).join('')}</div>${conv ? `<p class="muted">Converts: ${conv}</p>` : ''}`);
     if (B.names.length > 1) body += section('book', 'Names', `<p class="muted">Each new one takes the next name: ${B.names.slice(0, 6).map(esc).join(', ')}…</p>`);
     if (G) body += section('clock', 'Right now', kvs([['Operating', built(G, id)], ['Under construction', G.bld.filter(b => b.type === id && b.done != null).length]]));
+    if (G && G.phase > 0) {
+      const best = Object.keys(CITIES).flatMap(c => recommendForCity(G, c, undefined, 20)).filter(r => r.type === id).sort((a, b) => b.score - a.score)[0];
+      if (best) {
+        body += section('bulb', 'Advisor', `<p>${esc(best.reason)}</p>`);
+        actions = `<button class="btn" data-act="city" data-arg="${best.city}">${icon('pin')}Best site: ${CITY_POS[best.city].name}</button>`;
+      }
+    }
     if (B.unlock) rel.push('dec:' + B.unlock);
     for (const T of B.tiers) if (T.unlock) rel.push('dec:' + T.unlock);
     if (B.to && CLASS_INFO[B.to]) rel.push('class:' + B.to);
@@ -278,7 +288,7 @@ export function infoSheet(G, key, canBack = false) {
   }
 
   const relHtml = [...new Set(rel)].filter(k => k !== key).map(chip).join('');
-  const head = `<div class="mh"><div class="tile itile ${p === 'class' || p === 'cmd' ? 'fig' : ''}" ${tileStyle(color)}>${tile}</div><div><div class="loc">${kicker}</div><h2>${esc(e.title)}</h2></div></div>`;
+  const head = `<div class="mh"><div class="tile itile ${p === 'class' || p === 'cmd' ? 'fig' : p === 'bld' ? 'art' : ''}" ${tileStyle(color)}>${tile}</div><div><div class="loc">${kicker}</div><h2>${esc(e.title)}</h2></div></div>`;
   return `${head}<div class="mb ibody">${body}${relHtml ? `<div class="isec"><h4>${icon('layers')}See also</h4><div class="ichips">${relHtml}</div></div>` : ''}</div>
   <div class="foot">${canBack ? `<button class="btn" data-act="info-back" style="margin-right:auto">${icon('arrow-left')}Back</button>` : ''}${actions}<button class="btn ${actions ? '' : 'primary'}" data-act="closemodal">Close</button></div>`;
 }
@@ -313,7 +323,7 @@ export function codexScreen(G, q = '', cat = 'all', head) {
     const items = gk ? list.filter(e => e.cat === gk) : list;
     if (!items.length) continue;
     if (gk) h += `<h3>${icon(CODEX_TABS[gk].icon)}${CODEX_TABS[gk].name} <small>${items.length}</small></h3>`;
-    h += `<div class="cgrid">${items.map(e => `<button class="centry" data-act="info" data-arg="${e.key}" data-key="${e.key}" style="--c:${e.color || C.gold}"><span class="ci">${e.fig ? figure(e.fig, 30) : icon(e.icon)}</span><span class="ct"><b>${esc(e.title)}</b><small>${esc(stripTags(e.summary || ''))}</small></span></button>`).join('')}</div>`;
+    h += `<div class="cgrid">${items.map(e => `<button class="centry" data-act="info" data-arg="${e.key}" data-key="${e.key}" style="--c:${e.color || C.gold}"><span class="ci ${e.model ? 'art' : ''}">${e.model ? model(e.model) : e.fig ? figure(e.fig, 30) : icon(e.icon)}</span><span class="ct"><b>${esc(e.title)}</b><small>${esc(stripTags(e.summary || ''))}</small></span></button>`).join('')}</div>`;
   }
   return h + '</div>';
 }

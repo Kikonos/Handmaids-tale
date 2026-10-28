@@ -15,6 +15,8 @@ import { H as SIMH } from '../engine/sim.js';
 import { CLASS_INFO, POOL_INFO, figure, portrait } from './art.js';
 import { hemicycle, areaChart, donut, gauge, meter, esc } from './widgets.js';
 import { icon } from './icons.js';
+import { model } from './models.js';
+import { needs, recommendForCity, recommendations, warnings } from '../engine/advisor.js';
 
 const C = { red: '#e5484d', gold: '#d9b566', blue: '#5b8def', green: '#3dd68c', amber: '#ffb224', violet: '#9e8cfc', slate: '#8d95a3' };
 const costTxt = c => Object.entries(c || {}).map(([k, v]) => k === 'funds' ? `$${v}M` : k === 'treasury' ? `₲${v}M` : `${v} ${k[0].toUpperCase() + k.slice(1)}`).join(' · ');
@@ -26,8 +28,8 @@ export const head = (title, sub = '', ic = null, tint = C.red, extra = '') =>
 export const ti = key => ` data-act="info" data-arg="${key}"`;
 export const hq = key => `<button class="hq"${ti(key)} aria-label="What is this?">${icon('help')}</button>`;
 const actBtn = o => o.info ? `<div class="actw">${actBtn1(o)}<button class="ainfo"${ti(o.info)} aria-label="More information">${icon('info')}</button></div>` : actBtn1(o);
-const actBtn1 = ({ act, arg = '', ic = 'info', color = C.slate, title, desc = '', cost = '', ok = true, done = false, plain = false }) =>
-  `<button class="act ${ok ? '' : 'dis'} ${done ? 'done' : ''}" data-act="${act}" data-arg="${esc(arg)}" style="--c:${color}"><span class="ai">${icon(ic)}</span><span class="at"><b>${title}</b>${desc ? `<small>${desc}</small>` : ''}</span><span class="ac ${plain ? 'plain' : ''}">${cost}</span></button>`;
+const actBtn1 = ({ act, arg = '', ic = 'info', art = '', color = C.slate, title, desc = '', cost = '', ok = true, done = false, plain = false }) =>
+  `<button class="act ${ok ? '' : 'dis'} ${done ? 'done' : ''}" data-act="${act}" data-arg="${esc(arg)}" style="--c:${color}"><span class="ai ${art ? 'art' : ''}">${art || icon(ic)}</span><span class="at"><b>${title}</b>${desc ? `<small>${desc}</small>` : ''}</span><span class="ac ${plain ? 'plain' : ''}">${cost}</span></button>`;
 const stat = (k, ic, color, v, extra = '', key = '') => `<div class="stat"${key ? ti(key) : ''} style="--c:${color}"><div class="k">${icon(ic)}${k}</div><div class="v">${v}</div>${extra}</div>`;
 const stateTag = (G, ab) => {
   const s = G.st[ab];
@@ -102,6 +104,11 @@ export function cityDrawer(G, city) {
   const list = G.bld.filter(b => b.city === city);
   const slots = 2 + (Ct?.rank || 1) * 2;
   if (G.phase === 0) h += `<p class="lead">Nothing can be built until the Republic exists. Grow the chapter in ${STATES[ab].name} instead.</p>`;
+  const recs = held ? recommendForCity(G, city) : [];
+  if (recs.length) {
+    h += `<h3>${icon('bulb')}Recommended here${hq('mech:advisor')}</h3>`;
+    for (const r of recs) h += recBtn(G, r, false);
+  }
   h += `<h3>${icon('columns')}Institutions <small>${list.length} of ${slots} slots</small>${hq('mech:construction')}</h3>`;
   if (!list.length) h += `<div class="empty">No institutions yet.</div>`;
   for (const b of list) {
@@ -111,7 +118,9 @@ export function cityDrawer(G, city) {
     else if (B.housing) { info = `${fmtNum(b.occ)} / ${fmtNum(T.cap)} Unwomen`; m = meter(b.occ, T.cap, B.color); }
     else if (B.from) { const n = b.cohorts.reduce((a, c) => a + c.n, 0); info = `${fmtNum(n)} / ${fmtNum(T.cap)} in training · ${T.days}-day course`; m = meter(n, T.cap, B.color); }
     else info = T.name;
-    h += `<div class="card" style="display:flex;gap:12px;align-items:center;padding:12px"><span class="act"${ti('bld:' + b.type)} style="all:unset;--c:${B.color}"><span class="ai" style="width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:color-mix(in srgb, ${B.color} 16%, transparent);color:${B.color}">${icon(B.icon)}</span></span><div style="flex:1;min-width:0"><b style="font-size:13.5px">${esc(b.name)}</b><div class="muted" style="font-size:11.5px;margin:2px 0 6px">${B.label} · ${info}</div>${m}</div><button class="btn sm" data-act="demolish" data-arg="${b.uid}">Close</button></div>`;
+    const canUp = b.tier === 0 && B.tiers[1] && (!B.tiers[1].unlock || G.decrees[B.tiers[1].unlock] != null);
+    h += `<div class="card inst"><span class="mtile"${ti('bld:' + b.type)}>${model(b.type, '', b.done != null)}</span><div style="flex:1;min-width:0"><b style="font-size:13.5px">${esc(b.name)}</b><div class="muted" style="font-size:11.5px;margin:2px 0 6px">${B.label}${B.tiers.length > 1 ? ` · ${T.name}` : ''} · ${info}</div>${m}</div>
+      <div class="ibtns"><button class="btn sm ${canUp ? 'gold' : ''}" data-act="replace-menu" data-arg="${b.uid}">${icon(canUp ? 'arrow-up' : 'swap')}${canUp ? 'Upgrade' : 'Replace'}</button><button class="btn sm" data-act="demolish" data-arg="${b.uid}">Close</button></div></div>`;
   }
   if (held) {
     h += `<h3>${icon('plus')}Build</h3>`;
@@ -124,7 +133,7 @@ export function cityDrawer(G, city) {
         if (!av.ok && /Already one|Only one|Only at/.test(av.msg)) return;
         const nextName = B.unique ? B.names[0] : B.names[(G.nameIdx[type] || 0) % B.names.length];
         const cap = T.cap ? (B.housing ? ` · houses ${fmtNum(T.cap)}` : ` · ${fmtNum(T.cap)} per ${T.days}-day course`) : '';
-        h += actBtn({ act: 'build', arg: `${type}|${city}|${i}`, ic: B.icon, color: B.color, title: `${B.label}${B.tiers.length > 1 ? ` · ${T.name}` : ''}`, desc: `${av.ok ? esc(nextName) : av.msg}${cap}`, cost: `₲${T.cost}M · ${T.build}d`, ok: av.ok, info: 'bld:' + type });
+        h += actBtn({ act: 'build', arg: `${type}|${city}|${i}`, art: model(type), color: B.color, title: `${B.label}${B.tiers.length > 1 ? ` · ${T.name}` : ''}`, desc: `${av.ok ? esc(nextName) : av.msg}${cap}`, cost: `₲${T.cost}M · ${T.build}d`, ok: av.ok, info: 'bld:' + type });
       });
     }
     const locked = BUILD_ORDER.filter(t => BUILDINGS[t].unlock && G.decrees[BUILDINGS[t].unlock] == null);
@@ -133,6 +142,57 @@ export function cityDrawer(G, city) {
     }
   } else if (G.phase > 0) h += `<p class="lead">This city is not under the Republic's control.</p>`;
   return h + '</div>';
+}
+
+// A recommendation as a build (or replace) button. withCity: show the city name (national list).
+function recBtn(G, r, withCity, n = 0) {
+  const B = BUILDINGS[r.type], T = B.tiers[r.tier], old = r.replace != null ? G.bld.find(b => b.uid === r.replace) : null;
+  const where = withCity ? ` in ${CITY_POS[r.city].name}` : '';
+  const title = old ? `Replace ${esc(old.name)} with ${B.label}${where}` : `${B.label}${B.tiers.length > 1 ? ` · ${T.name}` : ''}${where}`;
+  const cost = old ? T.cost - A.salvage(old) : T.cost;
+  const btn = actBtn1({ act: old ? 'replace' : 'build', arg: old ? `${old.uid}|${r.type}|${r.tier}` : `${r.type}|${r.city}|${r.tier}`, art: model(r.type), color: B.color, title, desc: esc(r.reason), cost: `₲${cost}M`, ok: G.res.treasury >= cost });
+  return `<div class="rec">${n ? `<span class="recn">${n}</span>` : ''}${btn}${withCity ? `<button class="ainfo" data-act="city" data-arg="${r.city}" aria-label="Open city">${icon('pin')}</button>` : `<button class="ainfo"${ti('bld:' + r.type)} aria-label="More information">${icon('info')}</button>`}</div>`;
+}
+
+// =================== DRAWER: ADVISOR ===================
+export function advisorDrawer(G) {
+  let h = head('The Advisor', 'What the Republic needs, and where to build it', 'bulb', C.gold);
+  h += '<div class="dbody">';
+  if (G.phase === 0) return h + `<p class="lead">Nothing can be built until the Republic exists. Grow chapters, infiltrate the military and prepare the Three Strikes.</p></div>`;
+  for (const w of warnings(G)) h += `<div class="warnc ${w.bad ? 'bad' : ''}"><span class="wi">${icon(w.ic)}</span><div><b>${w.title}</b><small>${w.text}</small></div></div>`;
+  const recs = recommendations(G, 6);
+  h += `<h3>${icon('pin')}Where to build <small>numbered on the map</small>${hq('mech:advisor')}</h3>`;
+  if (!recs.length) h += `<div class="empty">Nothing pressing. The Republic is in order, for now.</div>`;
+  recs.forEach((r, i) => { h += recBtn(G, r, true, i + 1); });
+  const N = Object.entries(needs(G)).filter(([, v]) => v.score >= 0.1).sort((a, b) => b[1].score - a[1].score);
+  if (N.length) {
+    h += `<h3>${icon('chart-down')}Needs of the Republic</h3><div class="card" style="padding:6px 14px">`;
+    for (const [t, v] of N) h += `<div class="need"${ti('bld:' + t)}><span class="nm">${model(t)}</span><div><b>${BUILDINGS[t].label}</b>${meter(v.score * 100, 100, v.score > 0.66 ? C.red : v.score > 0.33 ? C.amber : C.slate)}<small>${esc(v.reason)}</small></div></div>`;
+    h += `</div>`;
+  }
+  return h + '</div>';
+}
+
+// =================== MODAL: REPLACE AN INSTITUTION ===================
+export function replaceMenu(G, uid) {
+  const old = G.bld.find(b => b.uid === uid);
+  if (!old) return null;
+  const OB = BUILDINGS[old.type], refund = A.salvage(old);
+  const N = needs(G), recs = recommendForCity(G, old.city, N, 20);
+  const opts = [];
+  for (const type of BUILD_ORDER) {
+    BUILDINGS[type].tiers.forEach((T, i) => {
+      const av = A.replaceAvailability(G, uid, type, i);
+      if (!av.ok && !/^Needs ₲/.test(av.msg)) return;
+      const rec = type === old.type ? null : recs.find(r => r.type === type);
+      opts.push({ type, tier: i, T, ok: av.ok, up: type === old.type, score: type === old.type ? 9 : (rec ? rec.score : (N[type]?.score || 0) * 0.5), reason: type === old.type ? `Rebuild as a ${T.name.toLowerCase()}: keeps its name and trainees.${T.cap ? ` Holds ${fmtNum(T.cap)} instead of ${fmtNum(OB.tiers[old.tier].cap)}.` : ''}` : (rec?.reason || N[type]?.reason || BUILDINGS[type].desc) });
+    });
+  }
+  opts.sort((a, b) => b.score - a.score);
+  const row = o => { const B = BUILDINGS[o.type], net = o.T.cost - refund; return `<button class="choice ${o.ok ? '' : 'dis'}" data-act="replace" data-arg="${uid}|${o.type}|${o.tier}"><span class="cm">${model(o.type)}</span><span class="ct">${o.up ? 'Upgrade · ' : ''}${B.label}${B.tiers.length > 1 ? ` · ${o.T.name}` : ''}${o.score >= 0.3 && !o.up ? ' <span class="tag gold" style="height:20px">Recommended</span>' : ''}<small>${esc(o.reason)}</small></span><span class="fxs"><span class="fx ${net <= 0 ? 'p' : 'n'}">${icon('coins')}<b>${net <= 0 ? '+' : '−'}₲${Math.abs(net)}M</b></span><span class="fx">${icon('clock')}<b>${o.T.build}d</b></span></span></button>`; };
+  return `<div class="mh"><div class="tile mtilebig">${model(old.type)}</div><div><div class="loc">${icon('swap')}Replace · ${CITY_POS[old.city].name}</div><h2>${esc(old.name)}</h2></div></div>
+  <div class="mb" style="padding-bottom:8px"><p style="margin:0;font-size:14px">Closing it salvages <b class="good">₲${refund}M</b> (${old.done != null ? 'half the cost, since it is unfinished' : 'a quarter of its cost'}).${OB.from && old.cohorts?.length && !opts.some(o => o.up) ? ' Anyone in training returns to their pool.' : ''} Costs below are net of salvage.</p></div>
+  <div class="mc">${opts.map(row).join('') || '<div class="empty">Nothing else can be built here yet.</div>'}<button class="btn sm" data-act="closemodal" style="align-self:flex-end;margin-top:4px">Cancel</button></div>`;
 }
 
 // =================== DRAWER: DISPATCHES ===================
@@ -215,7 +275,7 @@ export function popScreen(G) {
   for (const [type, g] of Object.entries(groups)) {
     const B = BUILDINGS[type];
     const to = B.to === 'processed' ? 'Interrogation' : CLASS_INFO[B.to]?.label;
-    h += `<div class="pipe"${ti('bld:' + type)} style="--c:${B.color}"><span class="pi">${icon(B.icon)}</span><div><b>${B.short} ×${g.count}<small>→ ${to}</small></b>${meter(g.n, g.cap, B.color)}</div><span class="pv">${fmtNum(g.n)}<br><span class="muted">/ ${fmtNum(g.cap)}</span></span></div>`;
+    h += `<div class="pipe"${ti('bld:' + type)} style="--c:${B.color}"><span class="pi art">${model(type)}</span><div><b>${B.short} ×${g.count}<small>→ ${to}</small></b>${meter(g.n, g.cap, B.color)}</div><span class="pv">${fmtNum(g.n)}<br><span class="muted">/ ${fmtNum(g.cap)}</span></span></div>`;
   }
   h += `</div>`;
   if (G._auntEff < 1) h += `<div class="card"${ti('mech:auntstaff')} style="border-color:rgba(255,178,36,.3);color:var(--amber);font-size:12.5px;display:flex;gap:8px;align-items:center">${icon('alert')}Not enough Aunts to staff every Red Centre (${Math.round(G._auntEff * 100)}% efficiency). Build an Aunts' Hall.</div>`;

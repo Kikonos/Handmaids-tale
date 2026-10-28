@@ -241,7 +241,9 @@ export function enact(G, id) {
 }
 
 // ---------------- Construction ----------------
-export function buildAvailability(G, type, city, tier = 0) {
+// ignoreUid / credit: check as if that institution were already gone and its salvage refunded (replacement).
+export function buildAvailability(G, type, city, tier = 0, ignoreUid = null, credit = 0) {
+  const bld = ignoreUid == null ? G.bld : G.bld.filter(b => b.uid !== ignoreUid);
   const B = BUILDINGS[type];
   if (G.phase === 0) return no('Seize power first');
   if (!cityHeld(G, city)) return no('City not under Gilead control');
@@ -249,12 +251,12 @@ export function buildAvailability(G, type, city, tier = 0) {
   const T = B.tiers[tier];
   if (!T) return no('No such tier');
   if (T.unlock && G.decrees[T.unlock] == null) return no('Requires decree: ' + DECREE_BY_ID[T.unlock].name);
-  if (B.unique === 'city' && G.bld.some(b => b.type === type && b.city === city)) return no('Already one here');
-  if (B.unique === 'nation' && G.bld.some(b => b.type === type)) return no('Only one may exist');
+  if (B.unique === 'city' && bld.some(b => b.type === type && b.city === city)) return no('Already one here');
+  if (B.unique === 'nation' && bld.some(b => b.type === type)) return no('Only one may exist');
   if (B.cities && !B.cities.includes(city)) return no('Only at ' + B.cities.map(c => CITY_POS[c].name).join(', '));
   const slots = 2 + CITIES[city].rank * 2;
-  if (G.bld.filter(b => b.city === city).length >= slots) return no(`City full (${slots} institutions)`);
-  if (G.res.treasury < T.cost) return no(`Needs ₲${T.cost}M`);
+  if (bld.filter(b => b.city === city).length >= slots) return no(`City full (${slots} institutions)`);
+  if (G.res.treasury + credit < T.cost) return no(`Needs ₲${T.cost - credit}M`);
   return ok('');
 }
 export function build(G, type, city, tier = 0) {
@@ -267,10 +269,43 @@ export function build(G, type, city, tier = 0) {
   let name = B.names[i % B.names.length];
   if (B.unique === 'city') name = `${B.names[0]} — ${CITY_POS[city].name}`;
   else if (i >= B.names.length) name += ` ${Math.floor(i / B.names.length) + 1}`;
-  const speed = 1 + (M(G, 'adm') || 0) + (G._admBonus || 0);
-  G.bld.push({ uid: G.uid++, type, tier, city, name, start: G.day, done: G.day + Math.max(2, Math.round(T.build / speed)), cohorts: [], occ: 0 });
-  log(G, `Construction begins: ${name}, ${CITY_POS[city].name} (${T.name}).`, 'build', city);
+  startConstruction(G, type, city, tier, name);
+  log(G, `Construction begins: ${name}${B.unique === 'city' ? '' : `, ${CITY_POS[city].name}`} (${T.name}).`, 'build', city);
   return ok(`${name} — construction begun`);
+}
+function startConstruction(G, type, city, tier, name, keep = {}) {
+  const T = BUILDINGS[type].tiers[tier];
+  const speed = 1 + (M(G, 'adm') || 0) + (G._admBonus || 0);
+  const b = { uid: G.uid++, type, tier, city, name, start: G.day, done: G.day + Math.max(2, Math.round(T.build / speed)), cohorts: [], occ: 0, ...keep };
+  G.bld.push(b);
+  return b;
+}
+// Replacing an institution salvages part of its cost: 25% of a working one, 50% of one still being built.
+export const salvage = b => Math.round(BUILDINGS[b.type].tiers[b.tier].cost * (b.done != null ? 0.5 : 0.25));
+export function replaceAvailability(G, uid, type, tier = 0) {
+  const old = G.bld.find(b => b.uid === uid);
+  if (!old) return no('That institution no longer exists');
+  if (old.type === type && old.tier === tier) return no('It is already this');
+  if (old.type === type && tier < old.tier) return no('Cannot downgrade');
+  return buildAvailability(G, type, old.city, tier, uid, salvage(old));
+}
+// Replace an institution with another (or upgrade it to its purpose-built tier, keeping its name and trainees).
+export function replace(G, uid, type, tier = 0) {
+  const a = replaceAvailability(G, uid, type, tier);
+  if (!a.ok) return a;
+  const old = G.bld.find(b => b.uid === uid), B = BUILDINGS[type], T = B.tiers[tier];
+  const refund = salvage(old), upgrade = old.type === type;
+  if (upgrade) {
+    G.bld.splice(G.bld.indexOf(old), 1);
+    add(G, 'treasury', refund - T.cost);
+    startConstruction(G, type, old.city, tier, old.name, { cohorts: old.cohorts || [], occ: old.occ || 0 });
+    log(G, `${old.name} is rebuilt as a ${T.name.toLowerCase()} (${CITY_POS[old.city].name}).`, 'build', old.city);
+    return ok(`${old.name}: upgrade begun`);
+  }
+  demolish(G, uid);
+  add(G, 'treasury', refund);
+  const r = build(G, type, old.city, tier);
+  return r.ok ? ok(`${old.name} replaced · ${r.msg}`) : r;
 }
 export function demolish(G, uid) {
   const i = G.bld.findIndex(b => b.uid === uid);

@@ -102,6 +102,15 @@ export const MECH = {
     how: 'Each institution is unlocked by a decree and costs Treasury and days to build. A city has 2 + 2 × its rank slots (regional 4, major 6, capital-class 8). Converted buildings are cheap; purpose-built ones unlock with the decree Purpose-built Centres.',
     affects: 'Conversion centres turn people into classes (see each one for capacity and course length). Others give lasting effects: markets, walls, halls, airfields, depots.', related: ['mech:processing'] },
 
+  advisor: { cat: 'republic', icon: 'bulb', title: 'The Advisor', summary: 'Recommends what to build and where, from what the Republic needs right now.',
+    how: 'Tap Advisor in the map toolbar for the national list (numbered gold rings mark the cities on the map), or open any city you hold: its best options are listed under Recommended here.',
+    body: 'Each need is scored from live numbers: fertile women waiting versus Red Centre capacity, Aunts short for the Red Centres, Marthas for Commander households, Guardians free for the fronts, Mayday, detainees awaiting interrogation, Unwomen without a colony, falling supplies, low Stability, Piety or Fear, fronts without a Rail Depot or Airfield in range, and babies lost for want of Birthing Houses. Cities are then rated on rank, population, free slots and distance to the fronts. When a city is full, the Advisor may suggest replacing its least useful institution.',
+    related: ['mech:replace', 'mech:construction'] },
+  replace: { cat: 'republic', icon: 'swap', title: 'Replacing & upgrading', summary: 'Turn an institution into a different one, or rebuild a converted building as its purpose-built version.',
+    how: 'Open a city and tap Replace (or Upgrade) on one of its institutions, then choose what to build in its place.',
+    affects: 'Replacing salvages a quarter of the old institution\'s cost (half if it was still being built), and anyone in training returns to their pool. Upgrading keeps the name and its trainees, who resume once the new building opens. The slot is out of use while construction runs.',
+    related: ['mech:advisor', 'mech:construction'] },
+
   // ---------------- People ----------------
   processing: { cat: 'people', icon: 'hourglass', title: 'Processing the population', summary: 'Everyone in territory you take must be registered and classed.',
     how: 'Men register as Economen on their own (0.4% a day). Women marry as Econowives (0.12% a day; faster with Women Barred from Work and Prayvaganzas). Children are registered. Commanders, Wives, Daughters and Sons appear as the Republic grows.',

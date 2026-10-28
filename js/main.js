@@ -12,6 +12,8 @@ import { createMap } from './ui/map.js';
 import * as P from './ui/panels.js';
 import { mark, figure, handmaidProfile } from './ui/art.js';
 import { icon, injectSprite } from './ui/icons.js';
+import { injectModels } from './ui/models.js';
+import { recommendations } from './engine/advisor.js';
 import { patch, onTap } from './ui/dom.js';
 import { fxChips, esc } from './ui/widgets.js';
 import { infoSheet, codexScreen } from './ui/info.js';
@@ -28,6 +30,7 @@ app.A = A; app.tick = tick;
 // ---------------- Boot ----------------
 function boot() {
   injectSprite();
+  injectModels();
   $('#rotate').innerHTML = `<div><svg class="rot-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg><p>Gilead is played in landscape.<br>Please rotate your iPad.</p></div>`;
   $('#drawer').classList.add('glass');
   showTitle();
@@ -213,7 +216,7 @@ function renderMapUi() {
   const legend = G.phase === 0
     ? `<div class="row">${sw('#1b1e24')}No chapter</div><div class="row">${sw('#8a6a1f')}Growing chapter</div><div class="row">${sw('#a3242b')}Strong chapter</div><div class="row">${sw('#1d3a6a')}Alaska &amp; Hawaii</div><div class="note">Tap a state to found chapters and infiltrate bases.</div><button class="lmore" data-act="info" data-arg="mech:map">${icon('help')}How to read the map</button>`
     : `<div class="row">${sw('#6a1a20')}Republic of Gilead</div><div class="row">${sw('repeating-linear-gradient(45deg,#5a2a20 0 3px,#ff6b40 3px 5px)')}Under conflict</div><div class="row">${sw('#1d2c45')}U.S. / rebel held</div><div class="row">${sw('#22457a')}Government in exile</div><div class="row"><i style="background:#d9b566;height:2px;border-radius:1px"></i>Railway with trains</div><button class="lmore" data-act="info" data-arg="mech:map">${icon('help')}How to read the map</button>`;
-  patch($('#map-ui'), `<div class="modes glass">${modes.map(([k, ic, l]) => `<button class="${m === k ? 'on' : ''}" data-act="mapmode" data-arg="${k}">${icon(ic)}${l}</button>`).join('')}<span class="msep"></span><button class="${app.legend ? 'on' : ''}" data-act="legend">${icon('layers')}Legend</button></div>
+  patch($('#map-ui'), `<div class="modes glass">${modes.map(([k, ic, l]) => `<button class="${m === k ? 'on' : ''}" data-act="mapmode" data-arg="${k}">${icon(ic)}${l}</button>`).join('')}<span class="msep"></span><button class="${app.legend ? 'on' : ''}" data-act="legend">${icon('layers')}Legend</button>${G.phase > 0 ? `<button class="${app.drawer?.type === 'advisor' ? 'on' : ''}" data-act="advisor">${icon('bulb')}Advisor</button>` : ''}</div>
     ${app.legend ? `<div class="legend glass">${legend}</div>` : ''}
     <div class="mapbtns glass"><button data-act="zoom" data-arg="in">${icon('plus')}</button><button data-act="zoom" data-arg="out">${icon('minus')}</button><button data-act="zoom" data-arg="reset">${icon('recenter')}</button></div>
     <div class="census glass" id="census"></div>
@@ -253,21 +256,24 @@ function refreshPanels(force = false) {
   if (app.drawer) {
     const d = app.drawer, key = d.type + ':' + (d.id || '');
     if (dr.dataset.key !== key) { dr.innerHTML = ''; dr.dataset.key = key; }
-    patch(dr, d.type === 'state' ? P.stateDrawer(G, d.id) : d.type === 'city' ? P.cityDrawer(G, d.id) : P.dispatchDrawer(G));
+    patch(dr, d.type === 'state' ? P.stateDrawer(G, d.id) : d.type === 'city' ? P.cityDrawer(G, d.id) : d.type === 'advisor' ? P.advisorDrawer(G) : P.dispatchDrawer(G));
+    if (d.type === 'advisor') app.map.highlight(recommendations(G, 6).map(r => r.city));
   }
 }
 
 function openDrawer(type, id) {
   app.drawer = { type, id };
-  app.map.select(type === 'dispatch' ? null : id);
-  if (type !== 'dispatch') app.map.ensureVisible(id, 450);
+  app.map.select(type === 'dispatch' || type === 'advisor' ? null : id);
+  app.map.highlight([]);
+  if (type !== 'dispatch' && type !== 'advisor') app.map.ensureVisible(id, 450);
   if (app.tab !== 'map') app.tab = 'map';
   $('#drawer').classList.remove('closed');
-  refreshPanels(true); renderNav(); app.map.render(app.G);
+  refreshPanels(true); renderNav(); renderMapUi(); app.map.render(app.G);
 }
-function closeDrawer() { app.drawer = null; app.map.select(null); $('#drawer').classList.add('closed'); $('#drawer').dataset.key = ''; renderNav(); app.map.render(app.G); }
+function closeDrawer() { app.drawer = null; app.map.select(null); app.map.highlight([]); if (app.G) renderMapUi(); $('#drawer').classList.add('closed'); $('#drawer').dataset.key = ''; renderNav(); app.map.render(app.G); }
 function setTab(t) {
   if (t === 'dispatch') { openDrawer('dispatch'); return; }
+  if (app.drawer?.type === 'advisor' && t !== 'map') closeDrawer();
   app.tab = t;
   if (t !== 'map') closeDrawer();
   renderNav(); refreshPanels(true);
@@ -441,7 +447,10 @@ function handleAction(act, arg, el) {
     case 'tab': setTab(arg); break;
     case 'close': if (el?.closest('#drawer')) closeDrawer(); else setTab('map'); break;
     case 'state': openDrawer('state', arg); break;
-    case 'city': openDrawer('city', arg); break;
+    case 'city': if (app.modal) closeModal(); openDrawer('city', arg); break;
+    case 'advisor': if (app.drawer?.type === 'advisor') closeDrawer(); else { sfx('open'); openDrawer('advisor'); } break;
+    case 'replace-menu': { const html = P.replaceMenu(G, +arg); if (html) { sfx('open'); modal(html, 'replace'); } break; }
+    case 'replace': { const [u, ty, tier] = arg.split('|'); const r = A.replace(G, +u, ty, +tier); result(r); if (r.ok) { sfx('build'); if (app.modal) closeModal(); } after(); break; }
     case 'event': openEvent(+arg); break;
     case 'choose': { const [u, i] = arg.split('|').map(Number); choose(u, i); break; }
     case 'census': app.censusOpen = !app.censusOpen; try { localStorage.setItem('gilead-census', app.censusOpen ? '1' : '0'); } catch { } renderCensus(); break;
