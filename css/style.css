@@ -396,7 +396,7 @@ p { line-height: 1.55; margin: 6px 0; }
 .toast.out { transition: opacity .35s, transform .35s; opacity: 0; transform: translateY(10px); }
 
 /* ---------- Title ---------- */
-#title { position: fixed; inset: 0; z-index: 500; background: var(--bg0); display: flex; overflow: hidden; padding-top: var(--sat); }
+#title { position: fixed; inset: 0; z-index: 500; background: var(--bg0); display: flex; flex-direction: column; overflow: hidden; padding-top: var(--sat); }
 #title.gone { animation: fadeout .7s forwards; pointer-events: none; }
 @keyframes fadeout { to { opacity: 0; visibility: hidden; } }
 .tbg { position: absolute; inset: 0; }
@@ -404,7 +404,7 @@ p { line-height: 1.55; margin: 6px 0; }
 @keyframes breathe { 50% { transform: scale(1.06); opacity: .8; } }
 .tgrid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px); background-size: 48px 48px; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%); }
 .tproc { position: absolute; left: 0; right: 0; bottom: 0; height: 100px; opacity: .5; mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
-.tcontent { position: relative; z-index: 2; margin: auto; text-align: center; padding: 20px; transform: translateY(-14px); }
+.tcontent { position: relative; z-index: 2; margin: auto; text-align: center; padding: 16px 20px; }
 .temblem { width: 112px; height: 112px; border-radius: 28px; box-shadow: 0 24px 60px rgba(0, 0, 0, .6), 0 0 80px rgba(229, 72, 77, .25); display: block; margin: 0 auto 26px; }
 .tcontent .kicker { color: var(--red2); letter-spacing: .32em; }
 .tcontent h1 { font-family: var(--display); font-weight: 400; font-size: 104px; margin: 10px 0 0; letter-spacing: -.015em; line-height: .92; }
@@ -412,7 +412,25 @@ p { line-height: 1.55; margin: 6px 0; }
 .tcontent .tag2 { font-size: 15px; color: var(--muted); margin-top: 14px; }
 .tcontent .menu { display: flex; flex-direction: column; gap: 10px; width: 320px; margin: 34px auto 0; }
 .tcontent .menu .btn { min-height: 52px; font-size: 15px; border-radius: 14px; }
-.tfoot { position: absolute; left: 0; right: 0; bottom: calc(112px + var(--sab)); z-index: 2; text-align: center; font-size: 11px; color: var(--faint); line-height: 1.6; padding: 0 40px; }
+/* The footer sits in the column flow (never over the menu), just above the procession of Handmaids. */
+.tfoot { position: relative; flex: none; z-index: 2; text-align: center; font-size: 11px; color: var(--faint); line-height: 1.6; padding: 0 40px; margin: 8px 0 calc(108px + var(--sab)); }
+@media (max-height: 800px) {
+  .temblem { width: 88px; height: 88px; border-radius: 22px; margin-bottom: 18px; }
+  .tcontent h1 { font-size: 88px; }
+  .tcontent .menu { margin-top: 24px; }
+  .tcontent .menu .btn { min-height: 48px; }
+  .tfoot { margin-bottom: calc(96px + var(--sab)); }
+  .tproc { transform: scale(.86); transform-origin: 50% 100%; left: -8.2%; right: -8.2%; }
+}
+@media (max-height: 700px) {
+  .temblem { width: 68px; height: 68px; border-radius: 18px; margin-bottom: 12px; }
+  .tcontent h1 { font-size: 72px; }
+  .tcontent .tag2 { margin-top: 8px; }
+  .tcontent .menu { margin-top: 18px; gap: 8px; }
+  .tcontent .menu .btn { min-height: 44px; }
+  .tfoot { margin-bottom: calc(76px + var(--sab)); }
+  .tproc { transform: scale(.7); transform-origin: 50% 100%; left: -21.5%; right: -21.5%; opacity: .4; }
+}
 
 /* ---------- Settings ---------- */
 .settings .row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--line); gap: 14px; }

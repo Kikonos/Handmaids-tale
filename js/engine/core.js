@@ -4,7 +4,7 @@ import { COMMANDERS } from '../data/commanders.js';
 import { DECREE_BY_ID } from '../data/decrees.js';
 import { BUILDINGS } from '../data/buildings.js';
 
-export const VERSION = '1.3.0';
+export const VERSION = '1.3.1';
 export const VERSION_NAME = 'Nolite Te Bastardes';
 export const START = Date.UTC(2012, 0, 1);
 export const HIGH_COUNCIL_SEATS = 15;
