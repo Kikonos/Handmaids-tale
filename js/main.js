@@ -14,13 +14,14 @@ import { mark, figure, handmaidProfile } from './ui/art.js';
 import { icon, injectSprite } from './ui/icons.js';
 import { patch, onTap } from './ui/dom.js';
 import { fxChips, esc } from './ui/widgets.js';
+import { infoSheet, codexScreen } from './ui/info.js';
 import { unlockAudio, playTheme, sfx, audioSettings, setAudio, THEME_NAMES, currentTheme } from './audio/audio.js';
 
 const $ = s => document.querySelector(s);
 const SPEEDS = { 1: 1.5, 2: 0.75, 4: 0.375 }; // real seconds per game day
 const THEME_OF = ['conspiracy', 'republic', 'eye', 'war', 'bethlehem', 'reckoning'];
 
-const app = { censusOpen: (() => { try { return localStorage.getItem('gilead-census') !== '0'; } catch { return true; } })(), legend: false, G: null, map: null, tab: 'map', drawer: null, acc: 0, modal: null, lastHud: 0, lastPanel: 0, lastMap: 0, speed: 1, toastQ: [] };
+const app = { censusOpen: (() => { try { return localStorage.getItem('gilead-census') !== '0'; } catch { return true; } })(), legend: false, G: null, map: null, tab: 'map', drawer: null, acc: 0, modal: null, lastHud: 0, lastPanel: 0, lastMap: 0, speed: 1, toastQ: [], infoStack: [], infoKey: null, codexQ: '', codexCat: 'all' };
 window.__app = app; // debugging hook
 app.A = A; app.tick = tick;
 
@@ -188,7 +189,7 @@ function renderHud() {
 const NAV = [
   ['map', 'map', 'Map'], ['plot', 'candle', 'The Plot', G => G.phase === 0], ['war', 'swords', 'War', G => G.phase > 0], ['pop', 'users', 'People'],
   ['cmd', 'medal', 'Commanders'], ['council', 'columns', 'Councils'], ['decrees', 'scroll', 'Decrees', G => G.phase > 0], ['goals', 'target', 'Goals'],
-  ['dispatch', 'inbox', 'Dispatches'], ['log', 'book', 'Chronicle'], ['settings', 'sliders', 'Settings'],
+  ['dispatch', 'inbox', 'Dispatches'], ['log', 'book', 'Chronicle'], ['codex', 'book-open', 'Codex'], ['settings', 'sliders', 'Settings'],
 ];
 function renderNav() {
   const G = app.G;
@@ -210,8 +211,8 @@ function renderMapUi() {
   const modes = G.phase === 0 ? [['auto', 'candle', 'Chapters'], ['infil', 'shield', 'Military'], ['pop', 'users', 'Population']] : [['auto', 'map', 'Control'], ['resist', 'flag', 'Enemy'], ['pop', 'users', 'Population']];
   const sw = c => `<i style="background:${c}"></i>`;
   const legend = G.phase === 0
-    ? `<div class="row">${sw('#1b1e24')}No chapter</div><div class="row">${sw('#8a6a1f')}Growing chapter</div><div class="row">${sw('#a3242b')}Strong chapter</div><div class="row">${sw('#1d3a6a')}Alaska &amp; Hawaii</div><div class="note">Tap a state to found chapters and infiltrate bases.</div>`
-    : `<div class="row">${sw('#6a1a20')}Republic of Gilead</div><div class="row">${sw('repeating-linear-gradient(45deg,#5a2a20 0 3px,#ff6b40 3px 5px)')}Under conflict</div><div class="row">${sw('#1d2c45')}U.S. / rebel held</div><div class="row">${sw('#22457a')}Government in exile</div><div class="row"><i style="background:#d9b566;height:2px;border-radius:1px"></i>Railway with trains</div>`;
+    ? `<div class="row">${sw('#1b1e24')}No chapter</div><div class="row">${sw('#8a6a1f')}Growing chapter</div><div class="row">${sw('#a3242b')}Strong chapter</div><div class="row">${sw('#1d3a6a')}Alaska &amp; Hawaii</div><div class="note">Tap a state to found chapters and infiltrate bases.</div><button class="lmore" data-act="info" data-arg="mech:map">${icon('help')}How to read the map</button>`
+    : `<div class="row">${sw('#6a1a20')}Republic of Gilead</div><div class="row">${sw('repeating-linear-gradient(45deg,#5a2a20 0 3px,#ff6b40 3px 5px)')}Under conflict</div><div class="row">${sw('#1d2c45')}U.S. / rebel held</div><div class="row">${sw('#22457a')}Government in exile</div><div class="row"><i style="background:#d9b566;height:2px;border-radius:1px"></i>Railway with trains</div><button class="lmore" data-act="info" data-arg="mech:map">${icon('help')}How to read the map</button>`;
   patch($('#map-ui'), `<div class="modes glass">${modes.map(([k, ic, l]) => `<button class="${m === k ? 'on' : ''}" data-act="mapmode" data-arg="${k}">${icon(ic)}${l}</button>`).join('')}<span class="msep"></span><button class="${app.legend ? 'on' : ''}" data-act="legend">${icon('layers')}Legend</button></div>
     ${app.legend ? `<div class="legend glass">${legend}</div>` : ''}
     <div class="mapbtns glass"><button data-act="zoom" data-arg="in">${icon('plus')}</button><button data-act="zoom" data-arg="out">${icon('minus')}</button><button data-act="zoom" data-arg="reset">${icon('recenter')}</button></div>
@@ -222,24 +223,24 @@ function renderMapUi() {
 function renderCensus() {
   const G = app.G, el = document.getElementById('census');
   if (!G || !el) return;
-  const row = (lead, label, v, extra = '') => `<div class="crow">${lead}<span>${label}</span><b>${v}</b>${extra}</div>`;
+  const row = (lead, label, v, extra = '', key = '') => `<div class="crow"${key ? ` data-act="info" data-arg="${key}"` : ''}>${lead}<span>${label}</span><b>${v}</b>${extra}</div>`;
   let h;
   if (G.phase === 0) {
     const cr = A.coupReady(G);
-    h = `<button class="ctitle" data-act="census"><span>${icon(app.censusOpen ? 'chevron-down' : 'chevron-right')}Sons of Jacob</span><b>${fmtNum(G.res.members)}</b></button>` + (!app.censusOpen ? '' : row(icon('candle'), 'Chapters', Object.values(G.st).filter(s => s.chapter > 0).length + ' states') +
-      row(icon('medal'), 'Committee', seated(G).length + '/12') + row(icon('shield'), 'Military', infiltration(G).toFixed(0) + '%') + row(icon('bolt'), 'Three Strikes', Math.round(cr.avg) + '%'));
+    h = `<button class="ctitle" data-act="census"><span>${icon(app.censusOpen ? 'chevron-down' : 'chevron-right')}Sons of Jacob</span><b>${fmtNum(G.res.members)}</b></button>` + (!app.censusOpen ? '' : row(icon('candle'), 'Chapters', Object.values(G.st).filter(s => s.chapter > 0).length + ' states', '', 'mech:chapters') +
+      row(icon('medal'), 'Committee', seated(G).length + '/12', '', 'mech:committee') + row(icon('shield'), 'Military', infiltration(G).toFixed(0) + '%', '', 'mech:infiltration') + row(icon('bolt'), 'Three Strikes', Math.round(cr.avg) + '%', '', 'mech:coup'));
   } else {
     const cl = G.pop.cls, tr = G._trainCache || {};
     const t = k => tr[k] ? `<i>+${fmtNum(tr[k])}</i>` : '';
-    h = `<button class="ctitle" data-act="census"><span>${icon(app.censusOpen ? 'chevron-down' : 'chevron-right')}Census</span><b>${fmtNum(gileadPop(G))}</b></button>` + (!app.censusOpen ? '' : row(figure('handmaid', 20), 'Handmaids', fmtNum(cl.handmaids), t('handmaids')) + row(figure('wife', 20), 'Wives', fmtNum(cl.wives)) +
-      row(figure('martha', 20), 'Marthas', fmtNum(cl.marthas), t('marthas')) + row(figure('aunt', 20), 'Aunts', fmtNum(cl.aunts), t('aunts')) + row(figure('guardian', 20), 'Guardians', fmtNum(cl.guardians), t('guardians')) +
-      row(figure('eye', 20), 'Eyes', fmtNum(cl.eyes), t('eyes')) + row(figure('unwoman', 20), 'Unwomen', fmtNum(cl.unwomen)) + '<div class="sep"></div>' + row(icon('baby'), 'Births / yr', fmtNum(G.pop.birthsYear)) +
-      row(icon('hourglass'), 'Unprocessed', fmtNum(G.pop.men + G.pop.women + G.pop.fertile + G.pop.children)));
+    h = `<button class="ctitle" data-act="census"><span>${icon(app.censusOpen ? 'chevron-down' : 'chevron-right')}Census</span><b>${fmtNum(gileadPop(G))}</b></button>` + (!app.censusOpen ? '' : row(figure('handmaid', 20), 'Handmaids', fmtNum(cl.handmaids), t('handmaids'), 'class:handmaids') + row(figure('wife', 20), 'Wives', fmtNum(cl.wives), '', 'class:wives') +
+      row(figure('martha', 20), 'Marthas', fmtNum(cl.marthas), t('marthas'), 'class:marthas') + row(figure('aunt', 20), 'Aunts', fmtNum(cl.aunts), t('aunts'), 'class:aunts') + row(figure('guardian', 20), 'Guardians', fmtNum(cl.guardians), t('guardians'), 'class:guardians') +
+      row(figure('eye', 20), 'Eyes', fmtNum(cl.eyes), t('eyes'), 'class:eyes') + row(figure('unwoman', 20), 'Unwomen', fmtNum(cl.unwomen), '', 'class:unwomen') + '<div class="sep"></div>' + row(icon('baby'), 'Births / yr', fmtNum(G.pop.birthsYear), '', 'mech:births') +
+      row(icon('hourglass'), 'Unprocessed', fmtNum(G.pop.men + G.pop.women + G.pop.fertile + G.pop.children), '', 'mech:processing'));
   }
   patch(el, h);
 }
 
-const SCREENS = { plot: P.plotScreen, pop: P.popScreen, cmd: P.cmdScreen, council: P.councilScreen, decrees: P.decreeScreen, war: P.warScreen, goals: P.goalScreen, log: P.logScreen, settings: settingsScreen };
+const SCREENS = { codex: G => codexScreen(G, app.codexQ, app.codexCat, P.head), plot: P.plotScreen, pop: P.popScreen, cmd: P.cmdScreen, council: P.councilScreen, decrees: P.decreeScreen, war: P.warScreen, goals: P.goalScreen, log: P.logScreen, settings: settingsScreen };
 function refreshPanels(force = false) {
   const G = app.G; if (!G) return;
   const sc = $('#screen');
@@ -293,11 +294,27 @@ function modal(html, cls = '') {
 }
 function closeModal() {
   app.modal = null; $('#modal-root').innerHTML = '';
+  app.infoStack = []; app.infoKey = null;
   const G = app.G;
   if (G && G.day === 0 && !G._hinted) { G._hinted = true; setTimeout(() => toast('Tap a state to found your first chapter, then press 1× to let time run.', 'gold', null, 'candle'), 400); }
   if (G && G._wasRunning && !G.outcome && !G.events.queue.some(q => EVENT_BY_ID[q.id].urgent)) { G._wasRunning = false; G.paused = false; }
   if (app.G) renderAll();
 }
+// Information sheets. Following a link inside a sheet keeps a back stack.
+function openInfo(key, push = false) {
+  const G = app.G;
+  if (app.modal && app.modal !== 'info') return; // never replace an open dispatch
+  if (push && app.infoKey && app.infoKey !== key) app.infoStack.push(app.infoKey);
+  else if (!push) app.infoStack = [];
+  const html = infoSheet(G, key, app.infoStack.length > 0);
+  if (!html) return;
+  app.infoKey = key;
+  sfx('open');
+  const open = app.modal === 'info' && $('#modal-root .modal');
+  if (open) { open.innerHTML = html; open.scrollTop = 0; } else modal(html, 'info');
+  app.modal = 'info';
+}
+function refreshInfo() { if (app.modal === 'info' && app.infoKey) { const html = infoSheet(app.G, app.infoKey, app.infoStack.length > 0); if (html) $('#modal-root .modal').innerHTML = html; } }
 const mhead = (ic, loc, title, urgent = false) => `<div class="mh"><div class="tile ${urgent ? 'urgent' : ''}">${icon(ic)}</div><div><div class="loc">${loc}</div><h2>${esc(title)}</h2></div></div>`;
 
 function openEvent(uid) {
@@ -354,7 +371,8 @@ function howto() {
   ${sec('users', 'People', 'Everyone in held territory is processed into a class. People shows each class and who is in training right now.')}
   ${sec('swords', 'War', 'Tap a contested state to launch offensives (supplied by a Rail Depot), call air and drone strikes from Airfields, and send helicopter patrols.')}
   ${sec('target', 'Goals', 'Each era has key goals. Meet them all to advance and unlock new decrees, buildings and abilities.')}
-  </div><div class="foot"><button class="btn primary" data-act="closemodal">Understood</button></div>`);
+  ${sec('help', 'Tap anything', 'Almost everything is tappable: the numbers in the top bar, the census, classes, institutions, decrees, goals and Commanders open a sheet that explains what it is, how to get it and what it does. The Codex in the left menu lists every mechanic and term.')}
+  </div><div class="foot">${app.G ? `<button class="btn" data-act="codex-from-modal">${icon('book-open')}Open the Codex</button>` : ''}<button class="btn primary" data-act="closemodal">Understood</button></div>`);
 }
 function about() {
   modal(`${mhead('info', `v${VERSION} · ${VERSION_NAME}`, 'About')}<div class="mb">
@@ -397,6 +415,7 @@ function settingsScreen(G) {
 }
 document.addEventListener('input', e => {
   const k = e.target.dataset?.input; if (!k) return;
+  if (k === 'codex') { app.codexQ = e.target.value; refreshPanels(true); return; }
   setAudio(k, +e.target.value);
 });
 
@@ -412,6 +431,10 @@ function handleAction(act, arg, el) {
     case 'about': about(); break;
     case 'closemodal': closeModal(); break;
     case 'goals-from-modal': closeModal(); setTab('goals'); break;
+    case 'codex-from-modal': closeModal(); setTab('codex'); break;
+    case 'info': if (G) openInfo(arg, app.modal === 'info'); break;
+    case 'info-back': { const k = app.infoStack.pop(); if (k) { app.infoKey = null; const html = infoSheet(G, k, app.infoStack.length > 0); app.infoKey = k; $('#modal-root .modal').innerHTML = html; sfx('click'); } break; }
+    case 'codexcat': app.codexCat = arg; refreshPanels(true); $('#screen').scrollTop = 0; break;
     case 'sandbox': G.outcome = null; G._endShown = false; G.sandbox = true; closeModal(); break;
     case 'totitle': if (G) saveGame(G, 'auto'); app.modal = null; $('#modal-root').innerHTML = ''; app.G = null; $('#app').classList.add('hidden'); showTitle(); playTheme('title'); break;
     case 'speed': { const s = +arg; if (s === 0) G.paused = true; else { G.paused = false; G.speed = s; } sfx('click'); app.dirty = true; renderHud(); break; }
@@ -434,11 +457,11 @@ function handleAction(act, arg, el) {
       if (r.ok) { setTab('map'); showPhase(1); } else result(r);
       after(); break;
     }
-    case 'seat': result(A.seatCommander(G, arg)); after(); break;
+    case 'seat': result(A.seatCommander(G, arg)); after(); refreshInfo(); break;
     case 'unseat': result(A.unseatCommander(G, arg)); after(); break;
     case 'portfolio': { const [id, pf] = arg.split('|'); result(A.setPortfolio(G, id, G.cmd[id].portfolio === pf ? null : pf)); after(); break; }
     case 'district': result(A.appointDistrict(G, arg)); after(); break;
-    case 'decree': { const r = A.enact(G, arg); result(r); if (r.ok) sfx('decree'); after(); break; }
+    case 'decree': { const r = A.enact(G, arg); result(r); if (r.ok) sfx('decree'); after(); refreshInfo(); break; }
     case 'build': { const [ty, c, tier] = arg.split('|'); const r = A.build(G, ty, c, +tier); result(r); if (r.ok) sfx('build'); after(); break; }
     case 'demolish': { const b = G.bld.find(x => x.uid === +arg); if (b) confirmModal('Close this institution?', `<b>${esc(b.name)}</b> will be closed. Anyone in training returns to their pool.`, 'demolish-yes', arg, 'Close it'); break; }
     case 'demolish-yes': closeModal(); result(A.demolish(G, +arg)); after(); break;

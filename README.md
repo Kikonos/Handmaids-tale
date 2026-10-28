@@ -1,6 +1,6 @@
 # Gilead: Under His Eye
 
-**v1.1.0 "Blessed Be the Fruit"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
+**v1.2.0 "Praise Be"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
 
 You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the United States, carry out the Three Strikes, and then build, run and defend the Republic of Gilead through six eras that follow the show's arc:
 
@@ -12,6 +12,14 @@ You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the
 | 4 | **The War** | Take Chicago, live under sanctions, face Angels' Flight and the Waterfords' arrest in Toronto. |
 | 5 | **New Bethlehem** | Run Lawrence's soft-power reform, or spring the hardliners' trap. |
 | 6 | **The Reckoning** | Survive the wedding, hold Boston for a year and rule from sea to sea. |
+
+## What's new in v1.2 "Praise Be"
+
+- **Tap anything to learn about it.** The top-bar numbers, census rows, classes, institutions, decrees, goals, eras, Commanders, portfolios and district councils each open an information sheet. A sheet explains what the thing is, how to get it and what it does, shows its current values, and links to related entries. Sheets can be followed from one to the next, with a Back button.
+- **The Codex.** A new tab holding every mechanic, class, institution, decree and term from the show, with search and categories.
+- **Decrees open a sheet before enacting.** It shows the decree's immediate and permanent effects, its prerequisites, the institutions it unlocks and the decrees it leads to, with an Enact button.
+- **"?" helpers** on section headers, and an info button beside every build and operation.
+- **Top bar fits on every iPad.** The stats strip compacts step by step (smaller icons, then no labels) instead of running off the edge of the screen.
 
 ## What's new in v1.1 "Blessed Be the Fruit"
 
@@ -55,6 +63,7 @@ You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the
 - **Councils drawn as semicircle seat charts** showing filled and empty seats: the 12-seat Committee, the 15-seat High Council and 10 district councils.
 - **Decree tree** with 44 decrees across five eras, unlocking institutions and abilities as the Republic establishes itself.
 - **Goals** for every era. Key goals advance you to the next era.
+- **The Codex and information sheets.** Tap almost anything to see how it works and how to get it.
 - **Game speed** of pause, 1×, 2× or 4×.
 - **Generative soundtrack** with a theme for each era (*The Committee*, *Under the Laws of God*, *Under His Eye*, *The Chicago Front*, *No Hangings*, *Mayday*) plus sound effects. It is all synthesised live, with no audio files.
 - **Saving.** The game autosaves every month and when you leave, and there are 3 manual save slots. It also works offline as a PWA.
