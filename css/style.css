@@ -50,18 +50,29 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 #ticker { grid-area: tick; display: flex; align-items: center; gap: 14px; padding: 0 calc(14px + var(--sar)) 0 14px; border-top: 1px solid var(--line); background: var(--bg1); font-size: 12px; color: var(--ink2); overflow: hidden; white-space: nowrap; z-index: 14; }
 
 /* ---------- Top bar ---------- */
-.brand { display: flex; align-items: center; gap: 11px; min-width: 0; flex: none; }
+.brand { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 0 1 auto; text-align: left; }
+.brand .bt { min-width: 0; }
 .mark { flex: none; display: block; border-radius: 11px; box-shadow: 0 4px 16px rgba(229, 72, 77, .25); }
 .brand .bt { display: flex; flex-direction: column; line-height: 1.15; }
-.brand .era { font-size: 15px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; }
+.brand .era { font-size: 15px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 210px; display: block; }
 .brand .date { font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
 .timectl { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line); flex: none; }
 .timectl button { height: 38px; min-width: 42px; padding: 0 10px; border-radius: 9px; color: var(--muted); font-family: var(--mono); font-weight: 600; font-size: 13px; display: grid; place-items: center; transition: background .15s, color .15s; }
 .timectl button .ic { width: 16px; height: 16px; }
 .timectl button.on { background: var(--ink); color: var(--bg0); }
 .timectl button.pause.on { background: var(--amber); color: #1a1200; }
-.kpis { display: flex; align-items: stretch; flex: 1; min-width: 0; justify-content: flex-end; height: 44px; }
-.kpi { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-left: 1px solid var(--line); min-width: 0; position: relative; }
+.kpis { display: flex; align-items: stretch; flex: 1; min-width: 0; justify-content: flex-end; height: 44px; overflow: hidden; }
+.kpi { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-left: 1px solid var(--line); flex: none; position: relative; border-radius: 0; text-align: left; }
+.kpi.pressed { background: rgba(255, 255, 255, .06); }
+#topbar[data-fit="1"] .kpi { padding: 0 8px; gap: 6px; }
+#topbar[data-fit="1"] .brand .era, #topbar[data-fit="2"] .brand .era, #topbar[data-fit="3"] .brand .era, #topbar[data-fit="4"] .brand .era { max-width: 150px; }
+#topbar[data-fit="2"] .kpi, #topbar[data-fit="3"] .kpi, #topbar[data-fit="4"] .kpi { padding: 0 7px; gap: 5px; }
+#topbar[data-fit="2"] .kpi .ki, #topbar[data-fit="3"] .kpi .ki, #topbar[data-fit="4"] .kpi .ki { width: 24px; height: 24px; background: none; }
+#topbar[data-fit="3"] .kpi .kv small, #topbar[data-fit="4"] .kpi .kv small { display: none; }
+#topbar[data-fit="3"] .kpi .kb, #topbar[data-fit="4"] .kpi .kb { left: 36px; right: 7px; }
+#topbar[data-fit="4"] .kpi .kv b em { display: none; }
+#topbar[data-fit="4"] .timectl button { min-width: 34px; padding: 0 6px; }
+#topbar[data-fit="4"] .brand .era { max-width: 120px; }
 .kpi:first-child { border-left: 0; }
 .kpi .ki { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); flex: none; }
 .kpi .ki .ic { width: 16px; height: 16px; }

@@ -141,28 +141,44 @@ function renderAll() { app.dirty = true; renderHud(); renderNav(); renderMapUi()
 
 function kpi(ic, color, val, label, opts = {}) {
   const d = opts.delta == null ? '' : `<em class="${opts.delta >= 0 ? 'good' : 'bad'}">${opts.delta >= 0 ? '+' : '−'}${Math.abs(opts.delta) >= 10 ? Math.round(Math.abs(opts.delta)) : Math.abs(opts.delta).toFixed(1)}</em>`;
-  return `<div class="kpi ${opts.alert ? 'alert' : ''}" style="--c:${color}"><span class="ki">${icon(ic)}</span><span class="kv"><b>${val}${d}</b><small>${label}</small></span>${opts.bar != null ? `<span class="kb"><i style="width:${Math.max(0, Math.min(100, opts.bar)).toFixed(1)}%"></i></span>` : ''}</div>`;
+  return `<button class="kpi ${opts.alert ? 'alert' : ''}" style="--c:${color}" data-act="info" data-arg="${opts.key || ''}"><span class="ki">${icon(ic)}</span><span class="kv"><b>${val}${d}</b><small>${label}</small></span>${opts.bar != null ? `<span class="kb"><i style="width:${Math.max(0, Math.min(100, opts.bar)).toFixed(1)}%"></i></span>` : ''}</button>`;
 }
+// Step the top bar down through compact layouts until every stat fits (iPad widths, long late-game numbers).
+function fitHud() {
+  const tb = $('#topbar'), k = tb.querySelector('.kpis');
+  if (!k) return;
+  let lvl = app.hudLvl || 0;
+  if (app._hudW !== tb.clientWidth || app._hudPhase !== app.G.phase) { lvl = 0; app._hudW = tb.clientWidth; app._hudPhase = app.G.phase; }
+  for (;;) {
+    if (tb.dataset.fit !== String(lvl)) tb.dataset.fit = lvl;
+    let need = 0; for (const c of k.children) need += c.offsetWidth;
+    if (need <= k.clientWidth + 1 || lvl >= 4) break;
+    lvl++;
+  }
+  app.hudLvl = lvl;
+}
+window.addEventListener('resize', () => { app._hudW = -1; });
 function renderHud() {
   const G = app.G; if (!G) return;
   const r = G.res, P0 = PHASES[G.phase];
   let k;
   if (G.phase === 0) {
     const inf = infiltration(G);
-    k = kpi('coins', '#d9b566', '$' + fmtNum(r.funds * 1e6), 'Funds') + kpi('megaphone', '#9e8cfc', fmtNum(r.influence), 'Influence') + kpi('user-plus', '#d9b566', fmtNum(r.members), 'Members') +
-      kpi('shield', '#5b8def', inf.toFixed(0) + '%', 'Military', { bar: inf / 0.35 }) + kpi('scan', r.suspicion > 70 ? '#e5484d' : '#ffb224', Math.round(r.suspicion) + '%', 'FBI suspicion', { bar: r.suspicion, alert: r.suspicion > 75 });
+    k = kpi('coins', '#d9b566', '$' + fmtNum(r.funds * 1e6), 'Funds', { key: 'mech:funds' }) + kpi('megaphone', '#9e8cfc', fmtNum(r.influence), 'Influence', { key: 'mech:influence' }) + kpi('user-plus', '#d9b566', fmtNum(r.members), 'Members', { key: 'mech:members' }) +
+      kpi('shield', '#5b8def', inf.toFixed(0) + '%', 'Military', { bar: inf / 0.35, key: 'mech:infiltration' }) + kpi('scan', r.suspicion > 70 ? '#e5484d' : '#ffb224', Math.round(r.suspicion) + '%', 'FBI suspicion', { bar: r.suspicion, alert: r.suspicion > 75, key: 'mech:suspicion' });
   } else {
     const net = (G._income || 0) - (G._upkeep || 0);
-    k = kpi('crown', '#d9b566', fmtNum(r.power), 'Power') + kpi('coins', '#d9b566', fmtNum(r.treasury * 1e6), 'Treasury', { delta: net, alert: r.treasury < 0 }) +
-      kpi('wheat', '#8fa274', fmtNum(r.supplies), 'Supplies', { delta: G._supplyNet || 0, alert: r.supplies < 20 }) +
-      kpi('pillar', '#3dd68c', Math.round(r.stability), 'Stability', { bar: r.stability, alert: r.stability < 20 }) + kpi('cross', '#d9b566', Math.round(r.piety), 'Piety', { bar: r.piety }) +
-      kpi('eye', '#e5484d', Math.round(r.fear), 'Fear', { bar: r.fear }) + kpi('globe', '#5b8def', (r.standing > 0 ? '+' : '') + Math.round(r.standing), 'Standing', { bar: (r.standing + 100) / 2 }) +
-      kpi('radio', '#ffb224', Math.round(r.resistance), 'Mayday', { bar: r.resistance, alert: r.resistance > 70 });
+    k = kpi('crown', '#d9b566', fmtNum(r.power), 'Power', { key: 'mech:power' }) + kpi('coins', '#d9b566', fmtNum(r.treasury * 1e6), 'Treasury', { delta: net, alert: r.treasury < 0, key: 'mech:treasury' }) +
+      kpi('wheat', '#8fa274', fmtNum(r.supplies), 'Supplies', { delta: G._supplyNet || 0, alert: r.supplies < 20, key: 'mech:supplies' }) +
+      kpi('pillar', '#3dd68c', Math.round(r.stability), 'Stability', { bar: r.stability, alert: r.stability < 20, key: 'mech:stability' }) + kpi('cross', '#d9b566', Math.round(r.piety), 'Piety', { bar: r.piety, key: 'mech:piety' }) +
+      kpi('eye', '#e5484d', Math.round(r.fear), 'Fear', { bar: r.fear, key: 'mech:fear' }) + kpi('globe', '#5b8def', (r.standing > 0 ? '+' : '') + Math.round(r.standing), 'Standing', { bar: (r.standing + 100) / 2, key: 'mech:standing' }) +
+      kpi('radio', '#ffb224', Math.round(r.resistance), 'Mayday', { bar: r.resistance, alert: r.resistance > 70, key: 'mech:mayday' });
   }
   const sp = G.paused ? 0 : G.speed;
-  patch($('#topbar'), `<div class="brand">${mark(36)}<div class="bt"><span class="era">${P0.name}</span><span class="date">${fmtDate(G.day)}</span></div></div>
+  patch($('#topbar'), `<button class="brand" data-act="info" data-arg="era:${G.phase}">${mark(36)}<span class="bt"><span class="era">${P0.name.replace(/^The /, "")}</span><span class="date">${fmtDate(G.day)}</span></span></button>
     <div class="timectl"><button class="pause ${sp === 0 ? 'on' : ''}" data-act="speed" data-arg="0">${icon('pause')}</button>${[1, 2, 4].map(s => `<button class="${sp === s ? 'on' : ''}" data-act="speed" data-arg="${s}">${s}×</button>`).join('')}</div>
     <div class="kpis">${k}</div>`);
+  fitHud();
   renderTicker();
   if (G.phase > 0 && (G.day % 5 === 0 || !G._trainCache)) G._trainCache = inTraining(G);
   renderCensus();
