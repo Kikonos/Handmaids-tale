@@ -2,13 +2,13 @@
 // (trains, helicopters, air and drone strikes, front-line fire, ripples) is drawn on a canvas layer on
 // top, which keeps the DOM still and taps responsive. Pan with one finger, pinch to zoom.
 import { STATE_SHAPES, STATE_BORDERS, NATION_OUTLINE, CONTEXT_LAND, CITY_POS, FOREIGN_CITIES, CANADA_BORDER } from '../data/geo.js';
-import { STATES, CITIES, RAILS, FIPS_TO_ABBR } from '../data/states.js';
+import { STATES, CITIES, FIPS_TO_ABBR } from '../data/states.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { EVENT_BY_ID } from '../data/events.js';
 import { isHeld, M } from '../engine/core.js';
 import { supplied } from '../engine/actions.js';
 import { NEIGH } from '../engine/sim.js';
-import { CITY_SITES, ROADS, CROSSINGS } from '../data/sites.js';
+import { CITY_SITES, ROADS, CROSSINGS, RAIL_LINES, DEPOT_SITES } from '../data/sites.js';
 import { RUNWAY } from './models.js';
 import { createTraffic } from './traffic.js';
 
@@ -25,6 +25,18 @@ const useIcon = (name, x, y, s, parent, color) => {
   return u;
 };
 const XING = Object.fromEntries(CROSSINGS.map(x => [x.id, x]));
+const pathOf = pts => 'M' + pts.map(p => p[0] + ' ' + p[1]).join('L');
+// A polyline shifted sideways by d (mitred corners), for the two steel rails of a track.
+function offsetLine(pts, d) {
+  return pts.map((p, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const n1 = norm(i ? [p[0] - a[0], p[1] - a[1]] : [b[0] - p[0], b[1] - p[1]]), n2 = norm(i < pts.length - 1 ? [b[0] - p[0], b[1] - p[1]] : n1);
+    let nx = -(n1[1] + n2[1]), ny = n1[0] + n2[0]; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+    const k = Math.min(2.5, 1 / Math.max(0.4, nx * -n1[1] + ny * n1[0]));
+    return [+(p[0] + nx * d * k).toFixed(2), +(p[1] + ny * d * k).toFixed(2)];
+  });
+}
+const norm = v => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
 const SHAPE = Object.fromEntries(STATE_SHAPES.map(s => [FIPS_TO_ABBR[s.id], s]));
 export const centroidOf = ab => { const s = SHAPE[ab]; return s ? { x: s.c[0], y: s.c[1] } : { x: 480, y: 300 }; };
 const LABEL_NUDGE = { FL: [12, 8], LA: [-8, 4], MI: [10, 14], CA: [-8, 6], ID: [0, 12], KY: [4, 3], VA: [6, 2], MD: [6, -4], NJ: [5, 2], NH: [0, 4], VT: [-1, -4], MA: [3, -1], CT: [0, 1], WV: [-2, 3], NY: [6, 2] };
@@ -76,19 +88,17 @@ export function createMap(root, ctx) {
   // Roads: asphalt with a dashed centre line, under the railways.
   const gRoads = el('g', { 'pointer-events': 'none' }, world);
   const roadEls = ROADS.map(r => {
-    const A = CITY_POS[r.a], B = CITY_POS[r.b], d = `M${A.x} ${A.y} Q${r.q[0]} ${r.q[1]} ${B.x} ${B.y}`;
-    const g = el('g', { class: 'road' }, gRoads);
+    const d = pathOf(r.pts), g = el('g', { class: 'road' }, gRoads);
     for (const c of ['r0', 'r1', 'r2']) el('path', { d, class: c }, g);
     return { ...r, g };
   });
-  // Railways: ballast, sleepers and two steel rails.
+  // Railways (RAIL_LINES[i] is RAILS[i] as a winding polyline): ballast, sleepers and two steel rails.
   const gRails = el('g', { 'pointer-events': 'none' }, world);
-  const railEls = RAILS.map(([a, b]) => {
-    const A = CITY_POS[a], B = CITY_POS[b], len = Math.hypot(B.x - A.x, B.y - A.y), nx = -(B.y - A.y) / len * 0.42, ny = (B.x - A.x) / len * 0.42;
+  const railEls = RAIL_LINES.map(r => {
     const g = el('g', { class: 'rail' }, gRails);
-    const ln = (dx, dy, c) => el('line', { x1: A.x + dx, y1: A.y + dy, x2: B.x + dx, y2: B.y + dy, class: c }, g);
-    ln(0, 0, 'ballast'); ln(0, 0, 'sleepers'); ln(nx, ny, 'steel'); ln(-nx, -ny, 'steel');
-    return { a, b, e: g };
+    el('path', { d: pathOf(r.pts), class: 'ballast' }, g); el('path', { d: pathOf(r.pts), class: 'sleepers' }, g);
+    el('path', { d: pathOf(offsetLine(r.pts, 0.42)), class: 'steel' }, g); el('path', { d: pathOf(offsetLine(r.pts, -0.42)), class: 'steel' }, g);
+    return { ...r, e: g };
   });
   const gSupply = el('g', { 'pointer-events': 'none' }, world);
   const gOps = el('g', { 'pointer-events': 'none' }, world);
@@ -234,6 +244,7 @@ export function createMap(root, ctx) {
   }
   const lastFill = {}, lastSig = { pins: '', bld: '', ops: '', hints: '', xing: '' };
   const bpos = new Map(); // building uid -> where its model stands (for planes and trains)
+  let structs = [];      // depots and checkpoints, built into the railway / road
   const traffic = createTraffic();
   let hints = [];
   function render(G) {
@@ -273,16 +284,20 @@ export function createMap(root, ctx) {
       lastSig.bld = bsig;
       gBld.textContent = '';
       bpos.clear();
+      const hit = (b, x, y, data) => { const g = el('g', { class: 'bld', ...data }, gBld); el('circle', { cx: x, cy: y, r: 5, fill: 'transparent' }, g); };
       const drawModel = (g, b, x, y, size) => {
         const a = { x: x - size / 2, y: y - size * 40 / 52, width: size, height: size };
         if (b.done != null) { el('use', { href: `#m-${b.type}`, ...a, opacity: .4 }, g); el('use', { href: '#m-scaffold', ...a }, g); }
         else el('use', { href: `#m-${b.type}`, ...a }, g);
       };
       const place = [], next = {};
+      structs = [];
       for (const b of G.bld) {
         let x, y, sc = 1;
-        if (b.site && XING[b.site]) { x = XING[b.site].x; y = XING[b.site].y + 1.2; sc = 0.72; }
-        else {
+        // checkpoints and rail depots are built into their road or track, oriented along it (drawn with the traffic)
+        if (b.site && XING[b.site]) { const X = XING[b.site]; structs.push({ kind: 'checkpoint', uid: b.uid, x: X.x, y: X.y, ang: X.ang, road: X.road, s: X.s, building: b.done != null }); hit(b, X.x, X.y, { 'data-st': b.st }); continue; }
+        if (b.type === 'depot' && DEPOT_SITES[b.city]) { const D = DEPOT_SITES[b.city]; structs.push({ kind: 'depot', uid: b.uid, city: b.city, x: D.x, y: D.y, ang: D.ang, rail: D.rail, s: D.s, building: b.done != null }); hit(b, D.x, D.y, { 'data-city': b.city }); continue; }
+        {
           const sites = CITY_SITES[b.city] || [], c = CITY_POS[b.city];
           const slot = b.slot ?? (next[b.city] = (next[b.city] ?? 50) + 1);
           const st = sites.length ? sites[slot % sites.length] : null;
@@ -290,7 +305,7 @@ export function createMap(root, ctx) {
           const extra = slot >= sites.length ? (slot % 2 ? 1 : -1) : 0;
           if (st) { x = st[0] + extra * 1.3; y = st[1] + extra * 0.5; sc = (st[2] || 1) * (extra ? 0.72 : 1); } else { x = c.x + 7; y = c.y + 1; }
         }
-        place.push({ b, x, y, size: (zoomedIn ? 15 : 18) * sc });
+        place.push({ b, x, y, size: (zoomedIn ? 15 : 16) * sc });
       }
       place.sort((p, q) => p.y - q.y);
       for (const p of place) {
@@ -299,7 +314,7 @@ export function createMap(root, ctx) {
         bpos.set(p.b.uid, p);
       }
     }
-    traffic.sync(G, { roads: roadEls, rails: railEls, bpos });
+    traffic.sync(G, { roads: roadEls, rails: railEls, bpos, structs });
     // advisor highlights
     const zf = 1 / Math.pow(Math.max(1, 1040 / vb.w), 0.7); // markers grow slowly with zoom
     const hsig = hints.join(',') + '|' + zf.toFixed(2);

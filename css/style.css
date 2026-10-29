@@ -119,14 +119,14 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .pin.urgent use { color: #ff8a8e; }
 @keyframes ring { from { transform: scale(.8); opacity: .9; } to { transform: scale(2.3); opacity: 0; } }
 /* 3D-looking railways: ballast, sleepers and two steel rails; roads: shoulder, asphalt, centre line */
-.rail line { stroke-linecap: butt; }
+.rail path { fill: none; stroke-linejoin: round; }
 .rail .ballast { stroke: #1d1a17; stroke-width: 2.3; }
 .rail .sleepers { stroke: #5b4630; stroke-width: 1.7; stroke-dasharray: .32 .62; }
 .rail .steel { stroke: #8a8f98; stroke-width: .2; }
 .rail { opacity: .35; }
 .rail.live { opacity: 1; }
 .rail.live .steel { stroke: #e2e5ea; }
-.road path { fill: none; stroke-linecap: round; }
+.road path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .road .r0 { stroke: #0b0c0e; stroke-width: 2.5; }
 .road .r1 { stroke: #3a3f47; stroke-width: 1.85; }
 .road .r2 { stroke: #d9b566; stroke-width: .18; stroke-dasharray: 1.2 1.2; opacity: .75; }

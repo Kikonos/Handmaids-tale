@@ -4,8 +4,8 @@ import { COMMANDERS } from '../data/commanders.js';
 import { DECREE_BY_ID } from '../data/decrees.js';
 import { BUILDINGS } from '../data/buildings.js';
 
-export const VERSION = '1.4.0';
-export const VERSION_NAME = 'Mayday';
+export const VERSION = '1.5.0';
+export const VERSION_NAME = 'The Road to Canada';
 export const START = Date.UTC(2012, 0, 1);
 export const HIGH_COUNCIL_SEATS = 15;
 export const COMMITTEE_SEATS = 12;

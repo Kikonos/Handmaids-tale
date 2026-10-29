@@ -1,6 +1,6 @@
 # Gilead: Under His Eye
 
-**v1.4.0 "Mayday"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
+**v1.5.0 "The Road to Canada"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
 
 You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the United States, carry out the Three Strikes, and then build, run and defend the Republic of Gilead through six eras that follow the show's arc:
 
@@ -12,6 +12,13 @@ You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the
 | 4 | **The War** | Take Chicago, live under sanctions, face Angels' Flight and the Waterfords' arrest in Toronto. |
 | 5 | **New Bethlehem** | Run Lawrence's soft-power reform, or spring the hardliners' trap. |
 | 6 | **The Reckoning** | Survive the wedding, hold Boston for a year and rule from sea to sea. |
+
+## What's new in v1.5 "The Road to Canada"
+
+- **Winding roads and railways.** Every road and railway is routed over land by pathfinding with its own terrain noise, so routes wind across the country in straight runs with sharp bends. They go round the lakes, the coast and the other cities.
+- **No overlaps.** A road or railway never runs alongside another; they only cross at a single point, or meet in a city. Building sites keep the whole building, its height included, clear of every road and track.
+- **Depots and checkpoints built into the line.** A Rail Depot stands on one of its city's tracks, with a pitched train shed over the line, a platform and a goods shed alongside. Supply trains slow down, pull in under the shed, stop and pull out again. A checkpoint stands across its road with a canopy, a guard booth, concrete blocks and red-and-white barrier arms. Each car stops, the barrier lifts, and the car drives through under the canopy.
+- 72 road crossings of state lines (none inside a city) are the places checkpoints can be built. Saves from 1.4 move their checkpoints onto the new crossings.
 
 ## What's new in v1.4 "Mayday"
 
@@ -108,7 +115,7 @@ python3 -m http.server 8080   # then open http://localhost:8080
 npm install              # only needed for the map build and tests
 npm run build:geo        # regenerates js/data/geo.js from us-atlas / world-atlas
 npm run build:brand      # regenerates icons and iPad launch screens in assets/brand/
-npm run build:sites      # regenerates building sites, roads and border crossings (js/data/sites.js)
+npm run build:sites      # routes roads and railways, places depots, checkpoint crossings and building sites (js/data/sites.js)
 npm test                 # headless simulation: bots play full games, checking for errors and NaNs
 ```
 
