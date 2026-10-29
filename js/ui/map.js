@@ -155,10 +155,10 @@ export function createMap(root, ctx) {
     vb.x = Math.max(-300, Math.min(1100 - vb.w * 0.3, vb.x));
     vb.y = Math.max(-250, Math.min(700 - vb.h * 0.3, vb.y));
   }
-  let dpr = 1, cw = 0, ch = 0;
+  let dpr = 1, cw = 0, ch = 0, qual = { dpr: 2, traffic: 1 };
   function sizeCanvas() {
     const r = root.getBoundingClientRect();
-    dpr = Math.min(2, window.devicePixelRatio || 1);
+    dpr = Math.min(qual.dpr, window.devicePixelRatio || 1);
     if (Math.round(r.width * dpr) !== canvas.width || Math.round(r.height * dpr) !== canvas.height) {
       canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
     }
@@ -509,6 +509,8 @@ export function createMap(root, ctx) {
     getMode: () => mode,
     select(id) { selected = id; },
     highlight(ids = []) { hints = ids; },
+    setQuality(q) { qual = q; traffic.density(q.traffic); sizeCanvas(); },
+    pan(dx, dy) { const s = view().s; vb.x += dx / s; vb.y += dy / s; fit(); },
     // Pan so a state/city isn't hidden under a panel docked on the right (rightPad screen px).
     ensureVisible(id, rightPad = 0) {
       const c = CITY_POS[id] || (SHAPE[id] ? centroidOf(id) : null);

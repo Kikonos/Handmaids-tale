@@ -80,7 +80,7 @@ const WAGONS = ['#6b3a2a', '#4f5a46', '#7a6a52', '#5c6670', '#6b3a2a'];
 const cubic = (P, u) => { const m = 1 - u; return [0, 1].map(k => m * m * m * P[0][k] + 3 * m * m * u * P[1][k] + 3 * m * u * u * P[2][k] + u * u * u * P[3][k]); };
 
 export function createTraffic() {
-  let sig = '', cars = [], trains = [], bpos = new Map(), structs = [], clock = 0;
+  let sig = '', cars = [], trains = [], bpos = new Map(), structs = [], clock = 0, dens = 1; // dens: traffic density (graphics quality)
   const planes = new Map(), roadInfo = new Map();
 
   // ---------- planes ----------
@@ -144,7 +144,7 @@ export function createTraffic() {
     const liveRoads = ctx.roads.map((r, i) => r.live ? i : -1).filter(i => i >= 0);
     const liveRails = ctx.rails.map((r, i) => r.live ? i : -1).filter(i => i >= 0);
     const fields = G.bld.filter(b => b.type === 'airfield' && b.done == null && bpos.has(b.uid)).map(b => b.uid).slice(0, 8);
-    const s = [liveRoads.join(','), liveRails.join(','), fields.join(','), (ctx.structs || []).map(t => t.uid + (t.building ? 'b' : '') + t.x).join(',')].join('|');
+    const s = [dens, liveRoads.join(','), liveRails.join(','), fields.join(','), (ctx.structs || []).map(t => t.uid + (t.building ? 'b' : '') + t.x).join(',')].join('|');
     if (s === sig) return;
     sig = s;
     const old = new Map(structs.map(t => [t.uid, t]));
@@ -157,9 +157,11 @@ export function createTraffic() {
       if (!roadInfo.has(i)) roadInfo.set(i, { line: line(ctx.roads[i].pts) });
       const info = roadInfo.get(i);
       info.cps = structs.filter(t => t.kind === 'checkpoint' && t.road === i && !t.building).map(t => ({ id: t.uid, s: t.s, st: t }));
-      const want = Math.max(1, Math.min(3, Math.round(info.line.L / 45)));
-      let have = cars.filter(c => c.road === i).length;
-      while (have++ < want && cars.length < 90) cars.push({ road: i, s: Math.random() * info.line.L, dir: Math.random() < 0.5 ? 1 : -1, v: rnd(7, 11), wait: 0, passed: null, ...carKind() });
+      const want = Math.max(dens < 0.5 ? 0 : 1, Math.min(3, Math.round(info.line.L / 45 * dens)));
+      const mine = cars.filter(c => c.road === i);
+      if (mine.length > want) { const drop = new Set(mine.slice(want)); cars = cars.filter(c => !drop.has(c)); }
+      let have = Math.min(mine.length, want);
+      while (have++ < want && cars.length < 90 * dens) cars.push({ road: i, s: Math.random() * info.line.L, dir: Math.random() < 0.5 ? 1 : -1, v: rnd(7, 11), wait: 0, passed: null, ...carKind() });
     }
     for (const c of cars) if (c.s > roadInfo.get(c.road).line.L) c.s = roadInfo.get(c.road).line.L;
     // trains: supply trains between depots, local freight on other open lines
@@ -204,7 +206,7 @@ export function createTraffic() {
       const j = journey(pieces.filter(p => Math.abs(p.s1 - p.s0) > 0.01));
       if (j.line.L > 5) trains.push({ ...j, s: 0, dir: 1, wait: rnd(0, 3), n: 6, v: 15, supply: true, passed: j.stops.length ? j.stops[0].uid : null });
     });
-    liveRails.filter((_, i) => i % 4 === 1).slice(0, 7).forEach(i => { const j = journey([{ i, s0: 0, s1: lines[i].L }]); trains.push({ ...j, s: Math.random() * 20, dir: 1, wait: rnd(0, 4), n: 3, v: 12 }); });
+    liveRails.filter((_, i) => i % 4 === 1).slice(0, Math.round(7 * dens)).forEach(i => { const j = journey([{ i, s0: 0, s1: lines[i].L }]); trains.push({ ...j, s: Math.random() * 20, dir: 1, wait: rnd(0, 4), n: 3, v: 12 }); });
     // planes: one per airfield
     for (const uid of [...planes.keys()]) if (!fields.includes(uid)) planes.delete(uid);
     for (const uid of fields) if (!planes.has(uid)) { const pl = { home: uid, ang: 0.52 }; leg(pl, [uid]); pl.i = 5; pl.tau = Math.random() * pl.segs[5].dur; planes.set(uid, pl); } // parked at home first
@@ -318,5 +320,5 @@ export function createTraffic() {
     else if (car.kind === 'truck') { box(c, x - Math.cos(ang) * 0.35, y - Math.sin(ang) * 0.35, ang, 1.5, 1.0, 0.95, car.col); box(c, x + Math.cos(ang) * 0.85, y + Math.sin(ang) * 0.85, ang, 0.6, 0.95, 0.7, sh(car.col, -0.25)); }
     else { box(c, x, y, ang, 1.8, 0.9, 0.42, car.col); box(c, x - Math.cos(ang) * 0.12, y - Math.sin(ang) * 0.12, ang, 0.95, 0.8, 0.36, '#2a3440', 0.42); }
   }
-  return { sync, frame };
+  return { sync, frame, density(d) { if (d !== dens) { dens = d; sig = ''; } } };
 }

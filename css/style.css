@@ -36,7 +36,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 /* ---------- Rotate prompt ---------- */
 #rotate { display: none; position: fixed; inset: 0; z-index: 9999; background: var(--bg0); align-items: center; justify-content: center; text-align: center; font-size: 17px; color: var(--ink2); }
 #rotate .rot-icon { width: 54px; height: 54px; margin: 0 auto 14px; color: var(--red); animation: spin 3s var(--ease) infinite; }
-@media (orientation: portrait) and (max-width: 1100px) { #rotate { display: flex; } }
+/* only touch devices are asked to rotate; a narrow desktop window just gets the landscape layout */
+@media (orientation: portrait) and (max-width: 1100px) { :root[data-input="touch"] #rotate { display: flex; } }
 @keyframes spin { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
 
 /* ---------- App grid ---------- */
@@ -584,3 +585,76 @@ div[data-act="info"].pressed, .tag[data-act="info"].pressed, p[data-act="info"].
 .far .road.live { opacity: .55; }
 .far .road .r2, .far .rail .sleepers { display: none; }
 .far .rail .ballast { stroke-width: 1.6; }
+
+/* ---------------- v1.6: device profiles ---------------- */
+/* Phone (landscape iPhone / Android): compact bars, icon-only menu, single-column panels */
+:root[data-device="phone"] { --top: 46px; --navw: 56px; --tick: 26px; }
+:root[data-device="phone"] #topbar { gap: 8px; }
+:root[data-device="phone"] .brand .bt .era { display: none; }
+:root[data-device="phone"] .brand .bt .date { font-size: 11px; }
+:root[data-device="phone"] .brand svg { width: 30px; height: 30px; }
+:root[data-device="phone"] .timectl button { height: 30px; min-width: 32px; padding: 0 6px; font-size: 12px; }
+:root[data-device="phone"] .navbtn { height: 42px; font-size: 0; gap: 0; }
+:root[data-device="phone"] .navbtn .ic { width: 20px; height: 20px; }
+:root[data-device="phone"] .navbtn .badge { font-size: 9px; top: 2px; right: 4px; min-width: 15px; height: 15px; }
+:root[data-device="phone"] .navbtn.on::before { left: -6px; top: 10px; bottom: 10px; }
+:root[data-device="phone"] #ticker { font-size: 11px; }
+:root[data-device="phone"] .modes { left: 8px; top: 8px; }
+:root[data-device="phone"] .modes button { font-size: 0; gap: 0; height: 30px; padding: 0 9px; }
+:root[data-device="phone"] .modes button .ic { width: 16px; height: 16px; }
+:root[data-device="phone"] .legend { top: 46px; left: 8px; }
+:root[data-device="phone"] .mapbtns { right: 8px; bottom: 8px; }
+:root[data-device="phone"] .mapbtns button { width: 34px; height: 34px; }
+:root[data-device="phone"] .census { left: 8px; bottom: 8px; width: 190px; padding: 8px 10px; }
+:root[data-device="phone"] .census .crow { height: 21px; font-size: 11px; }
+:root[data-device="phone"] #drawer { top: 6px; right: 6px; bottom: 6px; width: min(380px, 60%); max-width: 60%; border-radius: 16px; }
+:root[data-device="phone"] #main:has(#drawer:not(.closed)) .mapbtns { right: calc(min(380px, 60%) + 14px); }
+:root[data-device="phone"] .dhead { padding: 10px 12px; }
+:root[data-device="phone"] .dhead h2 { font-size: 24px; }
+:root[data-device="phone"] .dhead .htile { width: 36px; height: 36px; }
+:root[data-device="phone"] .dbody, :root[data-device="phone"] .sbody { padding: 10px 12px 24px; }
+:root[data-device="phone"] .grid4 { grid-template-columns: repeat(2, 1fr); }
+:root[data-device="phone"] .grid3 { grid-template-columns: repeat(2, 1fr); }
+:root[data-device="phone"] .cols { grid-template-columns: 1fr; gap: 6px; }
+:root[data-device="phone"] .classgrid { grid-template-columns: repeat(3, 1fr); }
+:root[data-device="phone"] .cmdgrid { grid-template-columns: repeat(2, 1fr); }
+:root[data-device="phone"] .tree { grid-template-columns: repeat(5, 230px); overflow-x: auto; }
+:root[data-device="phone"] .eras { grid-template-columns: repeat(3, 1fr); }
+:root[data-device="phone"] .endstats { grid-template-columns: repeat(3, 1fr); }
+:root[data-device="phone"] .goal .gp { width: 120px; }
+:root[data-device="phone"] .stat .v { font-size: 22px; }
+:root[data-device="phone"] .act { min-height: 52px; padding: 8px 10px; }
+:root[data-device="phone"] .modal { width: 94vw; max-height: calc(100vh - var(--sat) - var(--sab) - 16px); border-radius: 18px; }
+:root[data-device="phone"] #modal-root .backdrop { padding: calc(8px + var(--sat)) 8px calc(8px + var(--sab)); }
+:root[data-device="phone"] .modal .mh { padding: 14px 16px 10px; gap: 12px; }
+:root[data-device="phone"] .modal .mh .tile { width: 44px; height: 44px; }
+:root[data-device="phone"] .modal .mh h2 { font-size: 26px; }
+:root[data-device="phone"] .modal .mb { padding: 0 16px 10px; font-size: 14px; }
+:root[data-device="phone"] .modal .mc { padding: 4px 16px 14px; }
+:root[data-device="phone"] .modal .foot { padding: 0 16px 14px; }
+:root[data-device="phone"] .eramodal h1 { font-size: 44px; }
+:root[data-device="phone"] #toasts .toast { max-width: 60vw; font-size: 12.5px; }
+:root[data-device="phone"] .codexbar { padding: 10px 12px; margin: -10px -12px 6px; top: -10px; }
+@media (max-height: 460px) {
+  .temblem { display: none; }
+  .tcontent h1 { font-size: 58px; }
+  .tcontent .kicker { font-size: 9px; }
+  .tcontent .tag2 { font-size: 12px; margin-top: 4px; }
+  .tcontent .menu { margin-top: 12px; gap: 6px; width: 300px; }
+  .tcontent .menu .btn { min-height: 40px; font-size: 13.5px; }
+  .tfoot { font-size: 9.5px; margin-bottom: calc(46px + var(--sab)); }
+  .tproc { display: none; }
+}
+
+/* Mouse and keyboard: hover feedback */
+:root[data-input="mouse"] .act:hover, :root[data-input="mouse"] .choice:hover, :root[data-input="mouse"] .centry:hover, :root[data-input="mouse"] .dec:hover { background-color: rgba(255, 255, 255, .055); }
+:root[data-input="mouse"] .btn:hover { background-color: rgba(255, 255, 255, .09); }
+:root[data-input="mouse"] .btn.primary:hover { filter: brightness(1.08); }
+:root[data-input="mouse"] .navbtn:hover { color: var(--ink); background: rgba(255, 255, 255, .04); }
+:root[data-input="mouse"] .kpi:hover, :root[data-input="mouse"] div[data-act="info"]:hover { background-color: rgba(255, 255, 255, .04); }
+:root[data-input="mouse"] .bld:hover { filter: brightness(1.15); }
+
+/* Battery saver: no live blur behind panels (expensive on older iPads and phones) */
+:root[data-quality="low"] .glass, :root[data-quality="low"] #screen, :root[data-quality="low"] #modal-root .backdrop { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+:root[data-quality="low"] .glass { background: #121418 !important; }
+:root[data-quality="low"] #screen { background: #08090b !important; }

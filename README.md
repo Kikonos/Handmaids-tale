@@ -1,6 +1,6 @@
 # Gilead: Under His Eye
 
-**v1.5.1 "The Road to Canada"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
+**v1.6.0 "Blessed Day"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**, and adapts to iPhone, Android, Mac and PC.
 
 You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the United States, carry out the Three Strikes, and then build, run and defend the Republic of Gilead through six eras that follow the show's arc:
 
@@ -12,6 +12,14 @@ You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the
 | 4 | **The War** | Take Chicago, live under sanctions, face Angels' Flight and the Waterfords' arrest in Toronto. |
 | 5 | **New Bethlehem** | Run Lawrence's soft-power reform, or spring the hardliners' trap. |
 | 6 | **The Reckoning** | Survive the wedding, hold Boston for a year and rule from sea to sea. |
+
+## What's new in v1.6 "Blessed Day"
+
+- **Device detection.** The game recognises the device it is running on, by model where it can: iPad (your iPad 11-inch A16 included), iPhone, Android phone or tablet, Mac, Windows PC or Chromebook. It also recognises the browser, whether it is running as a Home Screen app, and touch versus mouse. Settings → This device shows what was detected.
+- **Layouts.** A **tablet** layout (as before), a compact **phone** layout for iPhone and Android in landscape (icon-only menu and map toolbar, smaller bars, collapsed census, two-column panels, a tighter title screen), and a **desktop** layout with hover feedback and "click" instead of "tap". It can be overridden in Settings.
+- **Graphics quality.** High, Balanced or Battery saver: canvas resolution, traffic density and the glass blur behind panels. Auto picks a level from the device and steps down by itself if the frame rate drops below about 40 fps.
+- **Keyboard shortcuts** on Mac and PC: Space pause, 1/2/3 speed, Esc close, + and − zoom, arrows pan, A Advisor, C Codex, M map.
+- The rotate prompt appears only on touch devices; the iPad top-bar offset applies only to iPad Home Screen apps.
 
 ## What's new in v1.5 "The Road to Canada"
 

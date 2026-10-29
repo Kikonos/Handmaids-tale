@@ -14,6 +14,7 @@ import { mark, figure, handmaidProfile } from './ui/art.js';
 import { icon, injectSprite } from './ui/icons.js';
 import { injectModels } from './ui/models.js';
 import { recommendations } from './engine/advisor.js';
+import { DEVICE, applyProfile, prefs, layout, quality, QUALITY, tapWord, sampleFrame, fps } from './ui/device.js';
 import { patch, onTap } from './ui/dom.js';
 import { fxChips, esc } from './ui/widgets.js';
 import { infoSheet, codexScreen } from './ui/info.js';
@@ -23,7 +24,8 @@ const $ = s => document.querySelector(s);
 const SPEEDS = { 1: 1.5, 2: 0.75, 4: 0.375 }; // real seconds per game day
 const THEME_OF = ['conspiracy', 'republic', 'eye', 'war', 'bethlehem', 'reckoning'];
 
-const app = { censusOpen: (() => { try { return localStorage.getItem('gilead-census') !== '0'; } catch { return true; } })(), legend: false, G: null, map: null, tab: 'map', drawer: null, acc: 0, modal: null, lastHud: 0, lastPanel: 0, lastMap: 0, speed: 1, toastQ: [], infoStack: [], infoKey: null, codexQ: '', codexCat: 'all' };
+applyProfile();
+const app = { censusOpen: (() => { try { const v = localStorage.getItem('gilead-census'); return v == null ? layout() !== 'phone' : v !== '0'; } catch { return layout() !== 'phone'; } })(), legend: false, G: null, map: null, tab: 'map', drawer: null, acc: 0, modal: null, lastHud: 0, lastPanel: 0, lastMap: 0, speed: 1, toastQ: [], infoStack: [], infoKey: null, codexQ: '', codexCat: 'all' };
 window.__app = app; // debugging hook
 app.A = A; app.tick = tick;
 
@@ -31,7 +33,7 @@ app.A = A; app.tick = tick;
 function boot() {
   injectSprite();
   injectModels();
-  $('#rotate').innerHTML = `<div><svg class="rot-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg><p>Gilead is played in landscape.<br>Please rotate your iPad.</p></div>`;
+  $('#rotate').innerHTML = `<div><svg class="rot-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg><p>Gilead is played in landscape.<br>Please rotate your ${DEVICE.os === 'iOS' ? 'iPhone' : DEVICE.os === 'iPadOS' ? 'iPad' : DEVICE.form}.</p></div>`;
   $('#drawer').classList.add('glass');
   showTitle();
   onTap(handleAction);
@@ -46,7 +48,8 @@ function boot() {
 // Top-bar offset: iPadOS can lay its status bar / window controls (and a blur) over the top of a
 // home-screen web app. The layout always reserves env(safe-area-inset-top); this adds a user nudge on top.
 const TOP_OFFSETS = [0, 12, 24, 36, 48];
-function topOffset() { try { const v = localStorage.getItem('gilead-top-extra'); if (v != null) return +v; } catch { } return isStandalone() ? 12 : 0; }
+// iPadOS draws its status bar over a home-screen app; an iPhone in landscape hides it.
+function topOffset() { try { const v = localStorage.getItem('gilead-top-extra'); if (v != null) return +v; } catch { } return isStandalone() && DEVICE.os === 'iPadOS' ? 12 : 0; }
 function isStandalone() { return navigator.standalone === true || matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches; }
 function applyTopOffset(v = topOffset()) { document.documentElement.style.setProperty('--top-extra', v + 'px'); }
 applyTopOffset();
@@ -89,6 +92,7 @@ function startGame(G) {
       onEmpty: () => closeDrawer(),
       sfx,
     });
+    app.map.setQuality(QUALITY[quality()]);
   }
   app.tab = 'map'; app.drawer = null;
   $('#drawer').classList.add('closed'); $('#screen').classList.add('closed');
@@ -116,6 +120,7 @@ function loop(now) {
       }
     }
     app.map.frame(dt, G, running);
+    if (running && !document.hidden) sampleFrame(dt, q => { app.map.setQuality(QUALITY[q]); toast(`Graphics set to ${QUALITY[q].label} to keep the game smooth`, '', null, 'sliders'); });
     if (now - app.lastMap > 350 && (app.dirty || now - app.lastMap > 1500)) { app.map.render(G); app.lastMap = now; }
     if ((app.dirty && now - app.lastHud > 200) || now - app.lastHud > 1000) { renderHud(); app.lastHud = now; }
     if (now - app.lastPanel > 700 && (app.dirty || now - app.lastPanel > 3000)) { refreshPanels(); app.lastPanel = now; app.dirty = false; }
@@ -302,7 +307,7 @@ function closeModal() {
   app.modal = null; $('#modal-root').innerHTML = '';
   app.infoStack = []; app.infoKey = null;
   const G = app.G;
-  if (G && G.day === 0 && !G._hinted) { G._hinted = true; setTimeout(() => toast('Tap a state to found your first chapter, then press 1× to let time run.', 'gold', null, 'candle'), 400); }
+  if (G && G.day === 0 && !G._hinted) { G._hinted = true; setTimeout(() => toast(`${tapWord()} a state to found your first chapter, then press 1× to let time run.`, 'gold', null, 'candle'), 400); }
   if (G && G._wasRunning && !G.outcome && !G.events.queue.some(q => EVENT_BY_ID[q.id].urgent)) { G._wasRunning = false; G.paused = false; }
   if (app.G) renderAll();
 }
@@ -368,16 +373,17 @@ function showEnd() {
   modal(`<div class="eraNo">${G.outcome === 'victory' ? 'VICTORY' : 'DEFEAT'} · ${fmtDate(G.day).toUpperCase()}</div><h1>${t}</h1><p>${d}</p><div class="endstats">${st.map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('')}</div><div class="actions">${G.outcome === 'victory' ? '<button class="btn" data-act="sandbox">Keep ruling</button>' : ''}<button class="btn primary" data-act="totitle">Return to title</button></div>`, 'eramodal');
 }
 function howto() {
+  const T = tapWord();
   const sec = (ic, t, body) => `<div style="display:flex;gap:14px;margin:0 0 14px"><span style="width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--redbg);color:var(--red2);flex:none">${icon(ic)}</span><div><b style="color:var(--ink)">${t}</b><div style="font-size:14px">${body}</div></div></div>`;
   modal(`${mhead('book-open', 'Field manual', 'How to play')}<div class="mb">
   ${sec('clock', 'Time', 'Pause or run at 1×, 2× or 4× (a day every 1.5s / 0.75s / 0.375s). Urgent dispatches pause the game and it resumes when you have answered.')}
-  ${sec('candle', 'Era 1: The Sons of Jacob', 'Tap states to found chapters and infiltrate bases. Open The Plot to fundraise, publish Serena Joy\'s book, cover your tracks and prepare the Three Strikes. Seat founders under Commanders. Keep FBI suspicion below 100%.')}
+  ${sec('candle', 'Era 1: The Sons of Jacob', `${T} states to found chapters and infiltrate bases. Open The Plot to fundraise, publish Serena Joy\'s book, cover your tracks and prepare the Three Strikes. Seat founders under Commanders. Keep FBI suspicion below 100%.`)}
   ${sec('bolt', 'The coup', 'When the key goals are met, execute the Three Strikes. States fall to you according to your chapters and infiltration.')}
-  ${sec('scroll', 'The Republic', 'Enact Decrees in the order the show depicts to unlock institutions. Tap a held city to build: Red Centres, Martha Houses, Aunts\' Halls, Barracks, Eyes, Detention, Colonies, Wife Schools, the Wall and more.')}
+  ${sec('scroll', 'The Republic', `Enact Decrees in the order the show depicts to unlock institutions. ${T} a held city to build: Red Centres, Martha Houses, Aunts\' Halls, Barracks, Eyes, Detention, Colonies, Wife Schools, the Wall and more.`)}
   ${sec('users', 'People', 'Everyone in held territory is processed into a class. People shows each class and who is in training right now.')}
-  ${sec('swords', 'War', 'Tap a contested state to launch offensives (supplied by a Rail Depot), call air and drone strikes from Airfields, and send helicopter patrols.')}
+  ${sec('swords', 'War', `${T} a contested state to launch offensives (supplied by a Rail Depot), call air and drone strikes from Airfields, and send helicopter patrols.`)}
   ${sec('target', 'Goals', 'Each era has key goals. Meet them all to advance and unlock new decrees, buildings and abilities.')}
-  ${sec('help', 'Tap anything', 'Almost everything is tappable: the numbers in the top bar, the census, classes, institutions, decrees, goals and Commanders open a sheet that explains what it is, how to get it and what it does. The Codex in the left menu lists every mechanic and term.')}
+  ${sec('help', `${T} anything`, `Almost everything is ${T === 'Click' ? 'clickable' : 'tappable'}: the numbers in the top bar, the census, classes, institutions, decrees, goals and Commanders open a sheet that explains what it is, how to get it and what it does. The Codex in the left menu lists every mechanic and term.`)}
   </div><div class="foot">${app.G ? `<button class="btn" data-act="codex-from-modal">${icon('book-open')}Open the Codex</button>` : ''}<button class="btn primary" data-act="closemodal">Understood</button></div>`);
 }
 function about() {
@@ -412,6 +418,11 @@ function settingsScreen(G) {
     <div class="row"><span>Now playing</span><span class="muted">${THEME_NAMES[currentTheme()] || 'Silence'}</span></div>
     <h3>${icon('layers')}Display</h3>
     <div class="row"><span>Top bar position<small>Move the top bar down if the iPad's status bar covers it</small></span><div class="seg" style="width:300px">${TOP_OFFSETS.map(v => `<button class="${topOffset() === v ? 'on' : ''}" data-act="topoffset" data-arg="${v}">${v ? '+' + v : 'Auto'}</button>`).join('')}</div></div>
+    <h3>${icon('layers')}This device</h3>
+    <div class="row"><span>Detected<small>${DEVICE.name} · ${DEVICE.os} · ${DEVICE.browser}${DEVICE.standalone ? ' · Home Screen app' : ''} · ${DEVICE.input === 'touch' ? 'touch' : 'mouse and keyboard'} · ${DEVICE.dpr}× display</small></span><span class="tag gold">${{ phone: 'Phone layout', tablet: 'Tablet layout', desktop: 'Desktop layout' }[layout()]}</span></div>
+    <div class="row"><span>Layout<small>Auto uses the layout made for this device</small></span><div class="seg" style="width:340px">${['auto', 'phone', 'tablet', 'desktop'].map(v => `<button class="${prefs.layout === v ? 'on' : ''}" data-act="layout" data-arg="${v}">${v === 'auto' ? 'Auto' : v[0].toUpperCase() + v.slice(1)}</button>`).join('')}</div></div>
+    <div class="row"><span>Graphics<small>${prefs.quality === 'auto' ? `Auto: ${QUALITY[quality()].label} · ` : ''}${Math.round(fps.value)} frames a second</small></span><div class="seg" style="width:340px">${['auto', 'high', 'balanced', 'low'].map(v => `<button class="${prefs.quality === v ? 'on' : ''}" data-act="quality" data-arg="${v}">${v === 'auto' ? 'Auto' : QUALITY[v].label}</button>`).join('')}</div></div>
+    ${DEVICE.input === 'mouse' ? `<div class="row"><span>Keyboard<small>Space pause · 1 2 3 speed · Esc close · + − zoom · arrows pan · A Advisor · C Codex</small></span></div>` : ''}
     <h3>${icon('save')}Saves</h3><div class="row"><span>Autosave<small>Every month and when you leave</small></span><button class="btn sm" data-act="save" data-arg="auto">Save now</button></div>${slots}
     <h3>${icon('info')}Game</h3>
     <div class="row"><span>How to play</span><button class="btn sm" data-act="howto">Open</button></div>
@@ -419,6 +430,22 @@ function settingsScreen(G) {
     <div class="row"><span>Quit to title<small>Your game is saved first</small></span><button class="btn sm" data-act="totitle">${icon('exit')}Quit</button></div>
   </div>`;
 }
+// Keyboard shortcuts (Mac and PC)
+document.addEventListener('keydown', e => {
+  const G = app.G;
+  if (!G || e.metaKey || e.ctrlKey || e.altKey || /INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+  const k = e.key;
+  if (k === 'Escape') { if (app.modal) { app.modal === 'info' && app.infoStack.length ? handleAction('info-back') : handleAction('closemodal'); } else if (app.drawer) closeDrawer(); else if (app.tab !== 'map') setTab('map'); e.preventDefault(); return; }
+  if (app.modal) return;
+  if (k === ' ') { handleAction('speed', G.paused ? String(G.speed || 1) : '0'); e.preventDefault(); }
+  else if (k === '1' || k === '2' || k === '3') handleAction('speed', { 1: '1', 2: '2', 3: '4' }[k]);
+  else if (k === '+' || k === '=') app.map.zoom(1.4);
+  else if (k === '-' || k === '_') app.map.zoom(1 / 1.4);
+  else if (k.startsWith('Arrow')) { const d = 60; app.map.pan(k === 'ArrowLeft' ? -d : k === 'ArrowRight' ? d : 0, k === 'ArrowUp' ? -d : k === 'ArrowDown' ? d : 0); e.preventDefault(); }
+  else if (k === 'a' || k === 'A') handleAction('advisor');
+  else if (k === 'c' || k === 'C') setTab('codex');
+  else if (k === 'm' || k === 'M') setTab('map');
+});
 document.addEventListener('input', e => {
   const k = e.target.dataset?.input; if (!k) return;
   if (k === 'codex') { app.codexQ = e.target.value; refreshPanels(true); return; }
@@ -482,6 +509,8 @@ function handleAction(act, arg, el) {
     case 'load': { const g = loadGame(arg); if (g) { startGame(g); toast('Game loaded', 'good'); } break; }
     case 'topoffset': try { localStorage.setItem('gilead-top-extra', arg); } catch { } applyTopOffset(+arg); after(); break;
     case 'mute': setAudio('muted', !audioSettings().muted); after(); break;
+    case 'layout': prefs.layout = arg; applyProfile(); app._hudW = -1; window.dispatchEvent(new Event('resize')); after(); renderAll(); break;
+    case 'quality': prefs.quality = arg; applyProfile(); app.map?.setQuality(QUALITY[quality()]); after(); break;
   }
 }
 
