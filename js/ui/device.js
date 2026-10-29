@@ -78,8 +78,17 @@ export const QUALITY = {
   low: { dpr: 1, traffic: 0.3, label: 'Battery saver' },
 };
 
+// Phones in landscape are only ~390 points tall: draw the interface at a smaller scale (via the viewport, so taps,
+// pinch and drag stay exact) so the screen holds a ~470-point-tall layout. iPhone 15 Pro: 393 / 470 = 0.84.
+export const viewportScale = () => layout() === 'phone' && DEVICE.input === 'touch' ? Math.max(0.8, Math.min(1, parseInt(DEVICE.screen) / 470)) : 1;
+function applyViewport() {
+  const k = viewportScale().toFixed(3), m = document.querySelector('meta[name=viewport]');
+  const content = `width=device-width, initial-scale=${k}, minimum-scale=${k}, maximum-scale=${k}, user-scalable=no, viewport-fit=cover`;
+  if (m && m.getAttribute('content') !== content) m.setAttribute('content', content);
+}
 export function applyProfile() {
   const el = document.documentElement;
+  applyViewport();
   el.dataset.device = layout();
   el.dataset.input = DEVICE.input;
   el.dataset.quality = quality();

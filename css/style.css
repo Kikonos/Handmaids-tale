@@ -153,7 +153,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .legend .row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
 .legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; flex: none; }
 .legend .note { color: var(--muted); font-size: 11px; margin-top: 6px; }
-.mapbtns { position: absolute; right: 14px; bottom: 14px; z-index: 5; display: flex; flex-direction: column; padding: 3px; gap: 2px; }
+.mapbtns { position: absolute; right: calc(14px + var(--sar)); bottom: 14px; z-index: 5; display: flex; flex-direction: column; padding: 3px; gap: 2px; }
 .mapbtns button { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; color: var(--ink2); }
 .mapbtns button.pressed { background: rgba(255, 255, 255, .1); }
 .census { position: absolute; left: 14px; bottom: 14px; z-index: 5; padding: 10px 14px; width: 206px; }
@@ -172,7 +172,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .vignette { pointer-events: none; position: absolute; inset: 0; z-index: 3; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0, 0, 0, .55) 100%); }
 
 /* ---------- Drawer & screens ---------- */
-#drawer { position: absolute; top: 10px; right: 10px; bottom: 10px; width: 420px; max-width: 46%; z-index: 10; display: flex; flex-direction: column;
+#drawer { position: absolute; top: 10px; right: calc(10px + var(--sar)); bottom: 10px; width: 420px; max-width: 46%; z-index: 10; display: flex; flex-direction: column;
   transform: translateX(0); transition: transform .32s var(--ease), opacity .2s; padding-right: 0; overflow: hidden; }
 #drawer.closed { transform: translateX(calc(100% + 20px)); opacity: 0; pointer-events: none; }
 #screen { position: absolute; inset: 0; z-index: 12; background: rgba(7, 8, 10, .94); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); display: flex; flex-direction: column; transition: opacity .2s; padding-right: var(--sar); }
@@ -355,7 +355,7 @@ p { line-height: 1.55; margin: 6px 0; }
 
 /* ---------- Modals ---------- */
 #modal-root .backdrop { position: fixed; inset: 0; z-index: 600; background: rgba(3, 4, 6, .66); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center;
-  padding: calc(20px + var(--sat)) 20px calc(20px + var(--sab)); animation: fadein .22s; }
+  padding: calc(20px + var(--sat)) calc(20px + var(--sar)) calc(20px + var(--sab)) calc(20px + var(--sal)); animation: fadein .22s; }
 @keyframes fadein { from { opacity: 0; } }
 .modal { width: min(700px, 92vw); max-height: calc(100vh - var(--sat) - var(--sab) - 40px); display: flex; flex-direction: column; border-radius: 22px; overflow: hidden;
   background: linear-gradient(180deg, #15181e, #0f1115); border: 1px solid var(--line2); box-shadow: 0 40px 100px rgba(0, 0, 0, .6); animation: rise .35s var(--ease); }
@@ -411,7 +411,7 @@ p { line-height: 1.55; margin: 6px 0; }
 .toast.out { transition: opacity .35s, transform .35s; opacity: 0; transform: translateY(10px); }
 
 /* ---------- Title ---------- */
-#title { position: fixed; inset: 0; z-index: 500; background: var(--bg0); display: flex; flex-direction: column; overflow: hidden; padding-top: var(--sat); }
+#title { position: fixed; inset: 0; z-index: 500; background: var(--bg0); display: flex; flex-direction: column; overflow: hidden; padding: var(--sat) var(--sar) 0 var(--sal); }
 #title.gone { animation: fadeout .7s forwards; pointer-events: none; }
 @keyframes fadeout { to { opacity: 0; visibility: hidden; } }
 .tbg { position: absolute; inset: 0; }
@@ -575,7 +575,7 @@ div[data-act="info"].pressed, .tag[data-act="info"].pressed, p[data-act="info"].
 .centry .ci.art .m3d { width: 50px; height: 50px; margin: -6px; }
 /* keep the zoom buttons clear of an open drawer */
 .mapbtns { transition: right .3s var(--ease); }
-#main:has(#drawer:not(.closed)) .mapbtns { right: calc(min(420px, 46%) + 22px); }
+#main:has(#drawer:not(.closed)) .mapbtns { right: calc(min(420px, 46%) + 22px + var(--sar)); }
 .warnc { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; margin: 4px 0 10px; background: var(--amberbg); border: 1px solid rgba(255, 178, 36, .3); }
 .warnc.bad { background: var(--redbg); border-color: var(--redline); }
 .warnc .wi { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; flex: none; background: rgba(0, 0, 0, .25); color: var(--amber); }
@@ -603,12 +603,12 @@ div[data-act="info"].pressed, .tag[data-act="info"].pressed, p[data-act="info"].
 :root[data-device="phone"] .modes button { font-size: 0; gap: 0; height: 30px; padding: 0 9px; }
 :root[data-device="phone"] .modes button .ic { width: 16px; height: 16px; }
 :root[data-device="phone"] .legend { top: 46px; left: 8px; }
-:root[data-device="phone"] .mapbtns { right: 8px; bottom: 8px; }
+:root[data-device="phone"] .mapbtns { right: calc(8px + var(--sar)); bottom: 8px; }
 :root[data-device="phone"] .mapbtns button { width: 34px; height: 34px; }
 :root[data-device="phone"] .census { left: 8px; bottom: 8px; width: 190px; padding: 8px 10px; }
 :root[data-device="phone"] .census .crow { height: 21px; font-size: 11px; }
-:root[data-device="phone"] #drawer { top: 6px; right: 6px; bottom: 6px; width: min(380px, 60%); max-width: 60%; border-radius: 16px; }
-:root[data-device="phone"] #main:has(#drawer:not(.closed)) .mapbtns { right: calc(min(380px, 60%) + 14px); }
+:root[data-device="phone"] #drawer { top: 6px; right: calc(6px + var(--sar)); bottom: 6px; width: min(380px, 60%); max-width: 60%; border-radius: 16px; }
+:root[data-device="phone"] #main:has(#drawer:not(.closed)) .mapbtns { right: calc(min(380px, 60%) + 14px + var(--sar)); }
 :root[data-device="phone"] .dhead { padding: 10px 12px; }
 :root[data-device="phone"] .dhead h2 { font-size: 24px; }
 :root[data-device="phone"] .dhead .htile { width: 36px; height: 36px; }
@@ -625,7 +625,7 @@ div[data-act="info"].pressed, .tag[data-act="info"].pressed, p[data-act="info"].
 :root[data-device="phone"] .stat .v { font-size: 22px; }
 :root[data-device="phone"] .act { min-height: 52px; padding: 8px 10px; }
 :root[data-device="phone"] .modal { width: 94vw; max-height: calc(100vh - var(--sat) - var(--sab) - 16px); border-radius: 18px; }
-:root[data-device="phone"] #modal-root .backdrop { padding: calc(8px + var(--sat)) 8px calc(8px + var(--sab)); }
+:root[data-device="phone"] #modal-root .backdrop { padding: calc(8px + var(--sat)) calc(8px + var(--sar)) calc(8px + var(--sab)) calc(8px + var(--sal)); }
 :root[data-device="phone"] .modal .mh { padding: 14px 16px 10px; gap: 12px; }
 :root[data-device="phone"] .modal .mh .tile { width: 44px; height: 44px; }
 :root[data-device="phone"] .modal .mh h2 { font-size: 26px; }
@@ -658,3 +658,5 @@ div[data-act="info"].pressed, .tag[data-act="info"].pressed, p[data-act="info"].
 :root[data-quality="low"] .glass, :root[data-quality="low"] #screen, :root[data-quality="low"] #modal-root .backdrop { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 :root[data-quality="low"] .glass { background: #121418 !important; }
 :root[data-quality="low"] #screen { background: #08090b !important; }
+/* full-screen tabs keep their content clear of the Dynamic Island / rounded corners on the right */
+#screen { padding-right: var(--sar); }

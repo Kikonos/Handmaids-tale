@@ -99,6 +99,14 @@ const IPADS = [
   [744, 1133, 2],  // iPad mini 6/7
   [1024, 1366, 2], // iPad Pro 12.9" / Air 13"
 ];
+// iPhone launch screens: [css width, css height, dpr]
+const IPHONES = [
+  [393, 852, 3],   // iPhone 15, 15 Pro, 16
+  [402, 874, 3],   // iPhone 16 Pro, 17 Pro
+  [430, 932, 3],   // iPhone 15 Plus, 15 Pro Max, 16 Plus
+  [440, 956, 3],   // iPhone 16 Pro Max, 17 Pro Max
+  [390, 844, 3],   // iPhone 12, 13, 14
+];
 
 (async () => {
   const b = await chromium.launch();
@@ -118,7 +126,7 @@ const IPADS = [
   fs.writeFileSync(path.join(OUT, 'icon.svg'), iconSVG(1, true));
   // Launch screens
   const links = [];
-  for (const [cw, ch, dpr] of IPADS) {
+  for (const [cw, ch, dpr] of [...IPADS, ...IPHONES]) {
     for (const orient of ['landscape', 'portrait']) {
       const w = (orient === 'landscape' ? ch : cw) * dpr, h = (orient === 'landscape' ? cw : ch) * dpr;
       await page.setViewportSize({ width: w, height: h });
