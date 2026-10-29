@@ -128,9 +128,9 @@ export const BUILDINGS = {
     tiers: [{ name: 'Rail yard', cost: 40, build: 10 }], names: ['Rail Depot'], unique: 'city', range: 260,
   },
   checkpoint: {
-    label: 'Checkpoints', short: 'Checkpoints', icon: 'barrier', color: '#c48a3a', unlock: 'd_checkpoints',
-    desc: 'Papers, please. Fewer escapes to Canada, less Mayday traffic — and resentment.',
-    tiers: [{ name: 'Checkpoint ring', cost: 20, build: 4 }], names: ['Checkpoints'], unique: 'city',
+    label: 'Checkpoint', short: 'Checkpoint', icon: 'barrier', color: '#c48a3a', unlock: 'd_checkpoints',
+    desc: 'Papers, please. Built where a road crosses a state line: fewer escapes to Canada, less Mayday traffic — and resentment.',
+    tiers: [{ name: 'Border checkpoint', cost: 20, build: 4 }], names: ['Checkpoint'], unique: 'site',
   },
   birthcenter: {
     label: 'Birthing House', short: 'Birthing House', icon: 'heart-plus', color: '#e8a0b0', unlock: 'd_birth_day',

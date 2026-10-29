@@ -1,5 +1,7 @@
 // Save / load. Transient fields (prefixed "_", fx, notes) are dropped.
-import { VERSION } from './core.js';
+import { VERSION, CITIES, STATES } from './core.js';
+import { CITY_POS } from '../data/geo.js';
+import { CROSSINGS } from '../data/sites.js';
 
 const KEY = 'gilead-save-';
 export function serialize(G) {
@@ -9,7 +11,22 @@ export function deserialize(s) {
   const G = JSON.parse(s);
   G.fx = []; G.notes = [];
   G.paused = true;
+  migrate(G);
   return G;
+}
+// Older saves: give every institution a map slot, and move city checkpoints (pre-1.4) onto the nearest
+// free road crossing of their state's border (refunded if there is none).
+function migrate(G) {
+  for (const b of G.bld) {
+    if (b.type === 'checkpoint' && !b.site) {
+      const st = CITIES[b.city]?.st, c = CITY_POS[b.city];
+      const x = CROSSINGS.filter(x => (x.a === st || x.b === st) && !G.bld.some(o => o.site === x.id)).sort((p, q) => Math.hypot(p.x - c.x, p.y - c.y) - Math.hypot(q.x - c.x, q.y - c.y))[0];
+      if (x) { const other = x.a === st ? x.b : x.a; b.site = x.id; b.st = st; b.name = `Checkpoint · ${STATES[st].name}–${STATES[other].name} line`; }
+      else { G.res.treasury += 20; b.gone = true; }
+    }
+  }
+  G.bld = G.bld.filter(b => !b.gone);
+  for (const b of G.bld) if (b.slot == null && !b.site) { let s = 0; while (G.bld.some(o => o !== b && o.city === b.city && !o.site && o.slot === s)) s++; b.slot = s; }
 }
 function store() { try { return globalThis.localStorage || null; } catch { return null; } }
 export function saveGame(G, slot = 'auto') {

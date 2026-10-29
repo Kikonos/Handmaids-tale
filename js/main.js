@@ -257,7 +257,7 @@ function refreshPanels(force = false) {
     const d = app.drawer, key = d.type + ':' + (d.id || '');
     if (dr.dataset.key !== key) { dr.innerHTML = ''; dr.dataset.key = key; }
     patch(dr, d.type === 'state' ? P.stateDrawer(G, d.id) : d.type === 'city' ? P.cityDrawer(G, d.id) : d.type === 'advisor' ? P.advisorDrawer(G) : P.dispatchDrawer(G));
-    if (d.type === 'advisor') app.map.highlight(recommendations(G, 6).map(r => r.city));
+    if (d.type === 'advisor') app.map.highlight(recommendations(G, 6).map(r => r.site || r.city));
   }
 }
 
@@ -446,7 +446,7 @@ function handleAction(act, arg, el) {
     case 'speed': { const s = +arg; if (s === 0) G.paused = true; else { G.paused = false; G.speed = s; } sfx('click'); app.dirty = true; renderHud(); break; }
     case 'tab': setTab(arg); break;
     case 'close': if (el?.closest('#drawer')) closeDrawer(); else setTab('map'); break;
-    case 'state': openDrawer('state', arg); break;
+    case 'state': if (app.modal) closeModal(); openDrawer('state', arg); break;
     case 'city': if (app.modal) closeModal(); openDrawer('city', arg); break;
     case 'advisor': if (app.drawer?.type === 'advisor') closeDrawer(); else { sfx('open'); openDrawer('advisor'); } break;
     case 'replace-menu': { const html = P.replaceMenu(G, +arg); if (html) { sfx('open'); modal(html, 'replace'); } break; }
@@ -471,7 +471,7 @@ function handleAction(act, arg, el) {
     case 'portfolio': { const [id, pf] = arg.split('|'); result(A.setPortfolio(G, id, G.cmd[id].portfolio === pf ? null : pf)); after(); break; }
     case 'district': result(A.appointDistrict(G, arg)); after(); break;
     case 'decree': { const r = A.enact(G, arg); result(r); if (r.ok) sfx('decree'); after(); refreshInfo(); break; }
-    case 'build': { const [ty, c, tier] = arg.split('|'); const r = A.build(G, ty, c, +tier); result(r); if (r.ok) sfx('build'); after(); break; }
+    case 'build': { const [ty, c, tier, site] = arg.split('|'); const r = A.build(G, ty, c, +tier, site || null); result(r); if (r.ok) sfx('build'); after(); break; }
     case 'demolish': { const b = G.bld.find(x => x.uid === +arg); if (b) confirmModal('Close this institution?', `<b>${esc(b.name)}</b> will be closed. Anyone in training returns to their pool.`, 'demolish-yes', arg, 'Close it'); break; }
     case 'demolish-yes': closeModal(); result(A.demolish(G, +arg)); after(); break;
     case 'offensive': { const [ab, f] = arg.split('|'); result(A.launchOffensive(G, ab, A.availableTroops(G) * +f)); after(); break; }

@@ -31,7 +31,7 @@ export const MECH = {
     body: 'You lose if the FBI raids the Committee before the coup (suspicion reaches 100%), if Washington, D.C. drops below 40% control, or if Stability stays at 0 for 90 days.',
     related: ['mech:suspicion', 'mech:stability', 'mech:control'] },
   map: { cat: 'basics', icon: 'map', title: 'The map', summary: 'Tap a state for its panel, tap a city to build, tap a pin to open a dispatch. Drag to pan, pinch or double-tap to zoom.',
-    body: 'Use the buttons at the top left to switch the map colouring (control, enemy strength, population; before the coup: chapters and military). Legend explains the colours. Gold lines are working railways; moving lights are trains. Red arrows are offensives; green dotted lines are supply routes from a Rail Depot. Glowing orange states are front lines.',
+    body: 'Use the buttons at the top left to switch the map colouring (control, enemy strength, population; before the coup: chapters and military). Legend explains the colours. Railways (sleepers and steel) and roads (asphalt, centre line) light up where the Republic holds both ends. Supply trains run between your Rail Depots, local freight on other open lines; planes take off from each Airfield, fly to another and land on its runway; cars stop at every border checkpoint. Institutions stand on their own sites around their city, always inside its state. Red arrows are offensives; green dotted lines are supply routes from a Rail Depot. Glowing orange states are front lines.',
     related: ['mech:control', 'mech:supply', 'mech:census'] },
   census: { cat: 'basics', icon: 'users', title: 'Census card', summary: 'The card at the bottom left of the map counts the key classes live. Gold numbers show how many are in training right now.',
     how: 'Tap its header to collapse it. Tap any row to learn about that class.', related: ['mech:processing'] },
@@ -240,7 +240,7 @@ export const BLD_EFFECT = {
   church: 'Piety +3 (lasting) and women marry as Econowives faster.',
   airfield: 'Air strikes, drone strikes and 2 helicopter squadrons for states within range.',
   depot: 'Supplies offensives within range (unsupplied ones are 55% weaker).',
-  checkpoint: 'Fewer escapes (−4% each) and lower Mayday; Fear rises.',
+  checkpoint: 'Fewer escapes (−4% each, up to 10) and lower Mayday; Fear rises. Built on a road where it crosses a state line; cars stop there for their papers.',
   birthcenter: 'More babies survive: +5% each, up to 90%.',
   newbethlehem: 'International standing +18 and returnees come home 60% faster. A key goal of Era 5.',
 };

@@ -3,7 +3,8 @@
 // Pure functions of G, so the headless tests can exercise them.
 import { BUILDINGS, CITIES, STATES, M, fmtNum, seated, inTraining, isHeld } from './core.js';
 import { CITY_POS, STATE_SHAPES } from '../data/geo.js';
-import { buildAvailability, replaceAvailability as replaceOk, availableTroops, supplied, airfieldFor } from './actions.js';
+import { buildAvailability, replaceAvailability as replaceOk, availableTroops, supplied, airfieldFor, checkpointAvailability, crossingHost, crossingName } from './actions.js';
+import { CROSSINGS } from '../data/sites.js';
 
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const centroid = ab => { const s = STATE_SHAPES.find(x => x.id === STATES[ab].fips); return { x: s.c[0], y: s.c[1] }; };
@@ -47,7 +48,7 @@ export function needs(G) {
   // Mayday.
   const md = r.resistance;
   set('eyes', clamp((md - 20) / 50) * 0.85, `Mayday stands at ${Math.round(md)}. The Eyes suppress it and raise Fear.`);
-  set('checkpoint', clamp((md - 25) / 60) * 0.5, `Mayday at ${Math.round(md)} smuggles people out. Each Checkpoint ring cuts escapes by 4%.`);
+  if (count(G, 'checkpoint') < 10) set('checkpoint', clamp((md - 25) / 60) * 0.5, `Mayday at ${Math.round(md)} smuggles people out. Each checkpoint cuts escapes by 4% (up to 10).`);
   // Detainees waiting.
   const detYr = capOf(G, 'detention', true);
   if (p.detainees > 2000) set('detention', clamp(p.detainees / (detYr / 6 + 20000)) * 0.75, `${fmtNum(p.detainees)} detainees are held without interrogation.`);
@@ -92,7 +93,7 @@ function fit(G, type, city, N) {
   if (PEOPLE.has(type)) f = 0.62 + C.rank * 0.1 + 0.08 * clamp(STATES[C.st].pop / 20);
   // Where the show put them.
   if ((type === 'redcenter' || type === 'wall' || type === 'ardua') && city === 'boston') { f += 0.12; why = type === 'wall' ? ' Boston\'s Wall is where the show hangs the condemned.' : ' Boston is the heart of the Republic.'; }
-  const slots = 2 + C.rank * 2, used = G.bld.filter(b => b.city === city).length;
+  const slots = 2 + C.rank * 2, used = G.bld.filter(b => b.city === city && !b.site).length;
   f *= 0.85 + 0.15 * (1 - used / slots);
   if (type === 'colony' || type === 'agricolony') f = [0, 1, 0.8, 0.55][C.rank];
   if (type === 'wall') f = [0, 0.6, 0.8, 1][C.rank];
@@ -108,7 +109,6 @@ function fit(G, type, city, N) {
     const d = Math.min(...fr.map(a => dist(pos, centroid(a))));
     f = 0.65 + 0.35 * clamp(1 - d / 400);
   }
-  if (type === 'checkpoint') { const nb = ['ME', 'NH', 'VT', 'NY', 'MI', 'WA', 'MN', 'ND', 'MT', 'ID', 'OH', 'PA'].includes(C.st); f *= nb ? 1 : 0.75; if (nb) why = ' It lies on the routes to Canada.'; }
   const same = G.bld.filter(b => b.city === city && b.type === type).length;
   f *= Math.pow(0.8, same);
   return { f: clamp(f), why };
@@ -120,7 +120,7 @@ function tierFor(G, type) {
 }
 // The weakest institution in a full city (the one the Republic needs least), for a replacement.
 function weakest(G, city, N, exceptType) {
-  const list = G.bld.filter(b => b.city === city && b.type !== exceptType && b.done == null && BUILDINGS[b.type].unique !== 'nation');
+  const list = G.bld.filter(b => b.city === city && !b.site && b.type !== exceptType && b.done == null && BUILDINGS[b.type].unique !== 'nation');
   if (!list.length) return null;
   return list.map(b => ({ b, v: (N[b.type]?.score || 0) + (BUILDINGS[b.type].from && b.cohorts?.length ? 0.15 : 0) })).sort((a, b) => a.v - b.v)[0];
 }
@@ -130,7 +130,7 @@ export function recommendForCity(G, city, N = needs(G), limit = 3) {
   const out = [];
   if (G.phase === 0 || !CITIES[city] || !isHeld(G, CITIES[city].st)) return out;
   for (const [type, nd] of Object.entries(N)) {
-    if (nd.score < 0.12) continue;
+    if (nd.score < 0.12 || BUILDINGS[type].unique === 'site') continue;
     const tier = tierFor(G, type);
     const av = buildAvailability(G, type, city, tier);
     let replace = null;
@@ -152,7 +152,7 @@ export function recommendForCity(G, city, N = needs(G), limit = 3) {
     out.push({ type, tier, city, score, reason, replace: replace?.uid ?? null, replaceName: replace?.name, afford: G.res.treasury >= BUILDINGS[type].tiers[tier].cost });
   }
   // A Wall that is costing the Republic its standing: suggest turning it into something useful.
-  const wall = G.phase >= 3 && G.res.standing < 0 && G.bld.find(b => b.city === city && b.type === 'wall' && b.done == null);
+  const wall = G.phase >= 3 && G.res.standing < 0 && G.bld.find(b => b.city === city && !b.site && b.type === 'wall' && b.done == null);
   if (wall) {
     const best = Object.entries(N).filter(([t, v]) => t !== 'wall' && v.score >= 0.12).map(([t, v]) => ({ t, v, tier: tierFor(G, t) }))
       .filter(o => { const a = replaceOk(G, wall.uid, o.t, o.tier); return a.ok || /^Needs ₲/.test(a.msg); }).sort((a, b) => b.v.score - a.v.score)[0];
@@ -168,6 +168,8 @@ export function recommendations(G, limit = 6) {
   if (G.phase === 0) return out;
   const cities = Object.keys(CITIES).filter(c => isHeld(G, CITIES[c].st));
   const all = cities.flatMap(c => recommendForCity(G, c, N, 20));
+  const cp = N.checkpoint && bestCrossing(G, N.checkpoint);
+  if (cp) all.push(cp);
   // Greedy: the most pressing need picks its city first; later picks avoid piling into the same city.
   const picked = {}, used = new Set();
   while (out.length < limit) {
@@ -193,4 +195,25 @@ export function warnings(G) {
   if (G.phase >= 3 && r.standing < 0) w.push({ ic: 'globe', bad: G.phase === 4, title: `International standing is ${Math.round(r.standing)}`, text: `Sanctions cut income${G.phase === 4 ? ', and New Bethlehem needs standing of 0 or more' : ''}. Each Wall costs 1.5 standing; air strikes cost more. A Foreign Affairs portfolio, New Bethlehem and the Mexican trade deal raise it.` });
   if ((G._auntEff ?? 1) < 1) w.push({ ic: 'book-open', bad: false, title: `Red Centres run at ${Math.round(G._auntEff * 100)}%`, text: 'Not enough Aunts to staff them. Build an Aunts\' Hall before more Red Centres.' });
   return w;
+}
+
+// The road crossing where a checkpoint does most good: lines facing enemy territory first, then the escape
+// routes north to Canada.
+const NORTH = new Set(['ME', 'NH', 'VT', 'NY', 'MI', 'WA', 'MN', 'ND', 'MT', 'ID', 'OH', 'PA', 'MA']);
+export function bestCrossing(G, nd = needs(G).checkpoint) {
+  if (!nd) return null;
+  let best = null;
+  for (const x of CROSSINGS) {
+    const av = checkpointAvailability(G, x.id);
+    if (!av.ok && !/^Needs ₲/.test(av.msg)) continue;
+    const st = crossingHost(G, x), other = st === x.a ? x.b : x.a;
+    const front = !isHeld(G, other), north = NORTH.has(st) || NORTH.has(other);
+    const f = front ? 1 : north ? 0.85 : 0.55;
+    const score = nd.score * f;
+    if (!best || score > best.score) {
+      const why = front ? ` The ${crossingName(x)} leads into ${STATES[other].name}, outside the Republic.` : north ? ` The ${crossingName(x)} is a route north to Canada.` : ` It guards the ${crossingName(x)}.`;
+      best = { type: 'checkpoint', tier: 0, city: null, st, site: x.id, score, reason: nd.reason + why, replace: null, afford: av.ok };
+    }
+  }
+  return best;
 }

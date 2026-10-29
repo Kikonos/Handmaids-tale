@@ -10,6 +10,7 @@ import { COMMANDERS } from '../js/data/commanders.js';
 import { BUILD_ORDER } from '../js/data/buildings.js';
 import { serialize, deserialize } from '../js/engine/save.js';
 import { recommendations, recommendForCity, warnings } from '../js/engine/advisor.js';
+import { CROSSINGS } from '../js/data/sites.js';
 
 const GAMES = +(process.argv[2] || 4), DAYS = +(process.argv[3] || 6000);
 let failures = 0;
@@ -60,12 +61,16 @@ function bot(G) {
     const r = recs[0];
     const solvent = G._income > G._upkeep + 5;
     if (r && solvent && G.res.treasury > BUILDINGS[r.type].tiers[r.tier].cost + 60) {
-      const res = r.replace != null ? A.replace(G, r.replace, r.type, r.tier) : A.build(G, r.type, r.city, r.tier);
+      const res = r.replace != null ? A.replace(G, r.replace, r.type, r.tier) : A.build(G, r.type, r.city, r.tier, r.site);
+      if (r.site && res.ok) STATS.checkpoints = (STATS.checkpoints || 0) + 1;
       if (r.replace != null && res.ok) STATS.replaced = (STATS.replaced || 0) + 1;
     }
+    if (solvent && G.bld.filter(b => b.type === 'checkpoint').length < 8) { const x = CROSSINGS.find(x => A.checkpointAvailability(G, x.id).ok); if (x && A.build(G, 'checkpoint', null, 0, x.id).ok) STATS.checkpoints = (STATS.checkpoints || 0) + 1; }
     const up = G.bld.find(b => b.tier === 0 && b.done == null && BUILDINGS[b.type].tiers[1] && A.replaceAvailability(G, b.uid, b.type, 1).ok);
     if (up && solvent && A.replace(G, up.uid, up.type, 1).ok) STATS.upgraded = (STATS.upgraded || 0) + 1;
-    for (const c of Object.keys(CITIES)) if (G.bld.filter(b => b.city === c).length > 2 + CITIES[c].rank * 2) throw new Error('city over capacity: ' + c);
+    for (const c of Object.keys(CITIES)) if (G.bld.filter(b => b.city === c && !b.site).length > 2 + CITIES[c].rank * 2) throw new Error('city over capacity: ' + c);
+    for (const c of Object.keys(CITIES)) { const sl = G.bld.filter(b => b.city === c && !b.site).map(b => b.slot); if (new Set(sl).size !== sl.length) throw new Error('two institutions on one site in ' + c); }
+    for (const b of G.bld) if (b.type === 'checkpoint' && (!b.site || G.bld.filter(o => o.site === b.site).length > 1)) throw new Error('checkpoint off a crossing or doubled: ' + b.name);
   }
   // build
   const cities = Object.keys(CITIES).filter(c => A.buildAvailability(G, 'market', c).msg !== 'City not under Gilead control' && heldStates(G).includes(CITIES[c].st));
@@ -113,6 +118,6 @@ for (let g = 0; g < GAMES; g++) {
   console.log(`  goals: ${Object.keys(G.goals).length}  decrees: ${Object.keys(G.decrees).length}  buildings: ${G.bld.length}  usa=${Math.round(G.army.usa)} infil=${Math.round(infiltration(G))}`);
   checkNaN(G, "end"); if (process.env.DBG) console.log(G.bld.filter(b => b.tier === 0 && BUILDINGS[b.type].tiers[1]).map(b => b.type + ":" + A.replaceAvailability(G, b.uid, b.type, 1).msg).join(" | ")); if (process.env.DBG) console.log(Object.keys(G.decrees).join(","), G.bld.map(b=>b.type+":"+b.city+":"+b.done).join(" "), G.pop.fertile|0, G.res.treasury|0, G._income, G._upkeep);
 }
-console.log(`  advisor: ${STATS.runs || 0} consultations, ${STATS.recs || 0} recommendations, ${STATS.replaced || 0} replacements, ${STATS.upgraded || 0} upgrades`);
+console.log(`  advisor: ${STATS.runs || 0} consultations, ${STATS.recs || 0} recommendations, ${STATS.replaced || 0} replacements, ${STATS.upgraded || 0} upgrades, ${STATS.checkpoints || 0} border checkpoints`);
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

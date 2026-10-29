@@ -1,6 +1,6 @@
 # Gilead: Under His Eye
 
-**v1.3.1 "Nolite Te Bastardes"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
+**v1.4.0 "Mayday"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**.
 
 You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the United States, carry out the Three Strikes, and then build, run and defend the Republic of Gilead through six eras that follow the show's arc:
 
@@ -12,6 +12,14 @@ You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the
 | 4 | **The War** | Take Chicago, live under sanctions, face Angels' Flight and the Waterfords' arrest in Toronto. |
 | 5 | **New Bethlehem** | Run Lawrence's soft-power reform, or spring the hardliners' trap. |
 | 6 | **The Reckoning** | Survive the wedding, hold Boston for a year and rule from sea to sea. |
+
+## What's new in v1.4 "Mayday"
+
+- **Institutions spread around their city.** Each stands on its own site around its city, always inside the city's state: never in the sea and never across a state line. Sites are precomputed from the state outlines. Washington, D.C. is too small to hold any, so its institutions fill the Capital District, and Rhode Island and Connecticut get smaller models so they fit.
+- **Roads and border checkpoints.** A road network (asphalt with a dashed centre line) joins the cities and never crosses water. Checkpoints can now only be built where a road crosses a state line, which leaves 89 crossings in the whole country. Each state's panel lists its crossings under **Border checkpoints**, and the Advisor picks crossings that face enemy territory or lead north to Canada. Little 3D cars (the Eyes' black vans, sedans and Guardian trucks) drive the roads and stop at every checkpoint for their papers.
+- **Railways and trains.** Railways now have ballast, sleepers and two steel rails. Supply trains with six carriages run between your Rail Depots along the network, and local freight trains work the other open lines.
+- **Airfields and planes.** Airfields have a long runway. A plane at each one rolls down the runway, takes off and climbs (its shadow falls away beneath it), flies to another Airfield, lines up on final approach, lands and taxis back. With a single Airfield it flies a circuit.
+- Saves from earlier versions are migrated: institutions get sites, and old city checkpoints move to the nearest free crossing of their state.
 
 ## What's new in v1.3 "Nolite Te Bastardes"
 
@@ -100,6 +108,7 @@ python3 -m http.server 8080   # then open http://localhost:8080
 npm install              # only needed for the map build and tests
 npm run build:geo        # regenerates js/data/geo.js from us-atlas / world-atlas
 npm run build:brand      # regenerates icons and iPad launch screens in assets/brand/
+npm run build:sites      # regenerates building sites, roads and border crossings (js/data/sites.js)
 npm test                 # headless simulation: bots play full games, checking for errors and NaNs
 ```
 

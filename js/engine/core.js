@@ -4,8 +4,8 @@ import { COMMANDERS } from '../data/commanders.js';
 import { DECREE_BY_ID } from '../data/decrees.js';
 import { BUILDINGS } from '../data/buildings.js';
 
-export const VERSION = '1.3.1';
-export const VERSION_NAME = 'Nolite Te Bastardes';
+export const VERSION = '1.4.0';
+export const VERSION_NAME = 'Mayday';
 export const START = Date.UTC(2012, 0, 1);
 export const HIGH_COUNCIL_SEATS = 15;
 export const COMMITTEE_SEATS = 12;
@@ -195,7 +195,7 @@ export function loseState(G, ab) {
   const p = G.pop;
   for (const k of ['men', 'women', 'fertile', 'children', 'detainees']) p[k] *= 1 - f;
   for (const k in p.cls) if (k !== 'commanders') p.cls[k] *= 1 - f;
-  for (const b of [...G.bld]) if (CITIES[b.city]?.st === ab) G.bld.splice(G.bld.indexOf(b), 1);
+  for (const b of [...G.bld]) if ((b.st || CITIES[b.city]?.st) === ab) G.bld.splice(G.bld.indexOf(b), 1);
   log(G, `${STATES[ab].name} has fallen to the enemy. Its people and institutions are lost to the Republic.`, 'alert', ab);
   fx(G, 'lost', { st: ab });
 }

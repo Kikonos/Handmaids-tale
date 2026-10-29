@@ -5,6 +5,8 @@
 import { BUILDINGS } from '../data/buildings.js';
 
 export const MODEL_VIEWBOX = '-26 -40 52 52';
+// Runway ends of the airfield model in model units (x along the runway, y = 0, z on the strip).
+export const RUNWAY = { x0: -16, x1: 16, z: 0.9 };
 const C30 = 0.8660254, S30 = 0.5;
 const P = (x, y, z) => [(x - y) * C30, (x + y) * S30 - z];
 const pts = a => a.map(p => { const [sx, sy] = P(...p); return `${sx.toFixed(2)},${sy.toFixed(2)}`; }).join(' ');
@@ -196,13 +198,15 @@ const MODELS = {
       windows('y', 7.7, -3.5, 3.5, 1.6, 5.4, 4, 1, '#3a332a', 0.45) +
       line([-0.5, -0.5, 13.6], [-0.5, -0.5, 19.5], '#c9a227', 0.5) + line([-2.2, -0.5, 17.8], [1.2, -0.5, 17.8], '#c9a227', 0.5);
   },
+  // The runway runs past the tile (x -17..17 along y = 0) so planes on the map can land and take off on it.
   airfield: c => {
-    let dash = ''; for (let x = -8; x < 9; x += 3.2) dash += poly([[x, -0.25, 0.86], [x + 1.6, -0.25, 0.86], [x + 1.6, 0.25, 0.86], [x, 0.25, 0.86]], '#e8e4dc');
-    const plane = poly([[3, 0, 1.6], [7, 0, 1.6], [7.4, 0, 1.6], [3, 0, 1.6]], '#fff') +
-      poly([[4.6, -2.6, 1.7], [5.3, -2.6, 1.7], [5.6, 2.6, 1.7], [4.9, 2.6, 1.7]], '#e8e4dc') + line([2.6, 0, 1.7], [7.6, 0, 1.7], '#ffffff', 0.7);
-    return shadow() + slab(mix(c, '#2a3036', 0.7)) + poly([[-10, -3, 0.84], [10, -3, 0.84], [10, 3, 0.84], [-10, 3, 0.84]], '#1c1f24') + dash + plane +
-      quonset(-9, -2, 6.8, 0.8, 3, shade(c, -0.05)) +
-      box(5.6, 5.6, 0.8, 1.6, 1.6, 8, '#9aa0a8') + box(4.8, 4.8, 8.8, 3.2, 3.2, 2, '#5ad1ff', { top: '#3a3f47' }) + flag(-6, -8, 0.8, 6, '#b3202a');
+    let dash = ''; for (let x = -14; x < 14; x += 3.2) dash += poly([[x, -0.22, 0.9], [x + 1.6, -0.22, 0.9], [x + 1.6, 0.22, 0.9], [x, 0.22, 0.9]], '#e8e4dc');
+    let lights = ''; for (let x = -16.5; x <= 16.5; x += 3) lights += `<circle cx="${P(x, 2.2, 0.9)[0].toFixed(2)}" cy="${P(x, 2.2, 0.9)[1].toFixed(2)}" r=".28" fill="#ffd98a"/><circle cx="${P(x, -2.2, 0.9)[0].toFixed(2)}" cy="${P(x, -2.2, 0.9)[1].toFixed(2)}" r=".28" fill="#ffd98a"/>`;
+    const thr = x0 => { let t = ''; for (let k = -1.5; k <= 1.5; k += 0.75) t += poly([[x0, k - 0.18, 0.9], [x0 + 1.4, k - 0.18, 0.9], [x0 + 1.4, k + 0.18, 0.9], [x0, k + 0.18, 0.9]], '#e8e4dc'); return t; };
+    return shadow() + `<polygon points="${pts([[-16, -1.2, 0], [19, -1.2, 0], [19, 4.4, 0], [-16, 4.4, 0]])}" fill="#000" opacity=".3"/>` + slab(mix(c, '#2a3036', 0.7)) +
+      box(-17.5, -2.6, 0, 35, 5.2, 0.84, '#2a2e35', { top: '#1c1f24' }) + dash + thr(-16.6) + thr(15.2) + lights +
+      quonset(-9, -2.5, 7, 0.8, 3, shade(c, -0.05)) + box(0.5, 4.6, 0.8, 4.5, 3, 1.4, '#59606b') +
+      box(6.4, 6.4, 0.8, 1.6, 1.6, 8, '#9aa0a8') + box(5.6, 5.6, 8.8, 3.2, 3.2, 2, '#5ad1ff', { top: '#3a3f47' }) + flag(-6, -8, 0.8, 6, '#b3202a');
   },
   depot: c => {
     let tracks = '';

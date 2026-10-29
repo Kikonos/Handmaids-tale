@@ -8,6 +8,9 @@ import { EVENT_BY_ID } from '../data/events.js';
 import { isHeld, M } from '../engine/core.js';
 import { supplied } from '../engine/actions.js';
 import { NEIGH } from '../engine/sim.js';
+import { CITY_SITES, ROADS, CROSSINGS } from '../data/sites.js';
+import { RUNWAY } from './models.js';
+import { createTraffic } from './traffic.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}, parent) => {
@@ -21,6 +24,7 @@ const useIcon = (name, x, y, s, parent, color) => {
   if (color) u.style.color = color;
   return u;
 };
+const XING = Object.fromEntries(CROSSINGS.map(x => [x.id, x]));
 const SHAPE = Object.fromEntries(STATE_SHAPES.map(s => [FIPS_TO_ABBR[s.id], s]));
 export const centroidOf = ab => { const s = SHAPE[ab]; return s ? { x: s.c[0], y: s.c[1] } : { x: 480, y: 300 }; };
 const LABEL_NUDGE = { FL: [12, 8], LA: [-8, 4], MI: [10, 14], CA: [-8, 6], ID: [0, 12], KY: [4, 3], VA: [6, 2], MD: [6, -4], NJ: [5, 2], NH: [0, 4], VT: [-1, -4], MA: [3, -1], CT: [0, 1], WV: [-2, 3], NY: [6, 2] };
@@ -69,8 +73,23 @@ export function createMap(root, ctx) {
   const nml = el('path', { d: CANADA_BORDER, fill: 'none', stroke: 'url(#nml)', 'stroke-width': 6, opacity: 0, 'pointer-events': 'none' }, world);
   const nmlLabel = el('text', { x: 300, y: 92, 'font-size': 6, fill: '#d9b566', opacity: 0, 'font-family': 'Inter, sans-serif', 'font-weight': 700, 'letter-spacing': '2', transform: 'rotate(3 300 92)' }, world);
   nmlLabel.textContent = "NO MAN'S LAND";
+  // Roads: asphalt with a dashed centre line, under the railways.
+  const gRoads = el('g', { 'pointer-events': 'none' }, world);
+  const roadEls = ROADS.map(r => {
+    const A = CITY_POS[r.a], B = CITY_POS[r.b], d = `M${A.x} ${A.y} Q${r.q[0]} ${r.q[1]} ${B.x} ${B.y}`;
+    const g = el('g', { class: 'road' }, gRoads);
+    for (const c of ['r0', 'r1', 'r2']) el('path', { d, class: c }, g);
+    return { ...r, g };
+  });
+  // Railways: ballast, sleepers and two steel rails.
   const gRails = el('g', { 'pointer-events': 'none' }, world);
-  const railEls = RAILS.map(([a, b]) => ({ a, b, e: el('line', { x1: CITY_POS[a].x, y1: CITY_POS[a].y, x2: CITY_POS[b].x, y2: CITY_POS[b].y, class: 'rail' }, gRails) }));
+  const railEls = RAILS.map(([a, b]) => {
+    const A = CITY_POS[a], B = CITY_POS[b], len = Math.hypot(B.x - A.x, B.y - A.y), nx = -(B.y - A.y) / len * 0.42, ny = (B.x - A.x) / len * 0.42;
+    const g = el('g', { class: 'rail' }, gRails);
+    const ln = (dx, dy, c) => el('line', { x1: A.x + dx, y1: A.y + dy, x2: B.x + dx, y2: B.y + dy, class: c }, g);
+    ln(0, 0, 'ballast'); ln(0, 0, 'sleepers'); ln(nx, ny, 'steel'); ln(-nx, -ny, 'steel');
+    return { a, b, e: g };
+  });
   const gSupply = el('g', { 'pointer-events': 'none' }, world);
   const gOps = el('g', { 'pointer-events': 'none' }, world);
   const gLabels = el('g', { 'pointer-events': 'none' }, world);
@@ -98,6 +117,7 @@ export function createMap(root, ctx) {
     const t = el('text', { x: 4, y: -3.5 }, g); t.textContent = c.name;
     cityEls[id] = g;
   }
+  const gXing = el('g', { 'pointer-events': 'none' }, world);
   const gBld = el('g', { class: 'blds' }, world);
   const gHint = el('g', { 'pointer-events': 'none' }, world);
   const gPins = el('g', {}, world);
@@ -113,6 +133,7 @@ export function createMap(root, ctx) {
     svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
     const z = 1040 / vb.w;
     svg.style.setProperty('--lz', (1 / Math.pow(Math.max(1, z), 0.7)).toFixed(3)); // labels grow slowly with zoom
+    svg.classList.toggle('far', z < 1.3); // simpler roads and rails on the national view
     const on = z > 1.35;
     if (on !== labelsOn) { labelsOn = on; gCities.querySelectorAll('.city:not(.cap) text').forEach(t => { t.style.display = on ? '' : 'none'; }); }
     const zi = z > 1.45;
@@ -211,7 +232,9 @@ export function createMap(root, ctx) {
     if (s.hold <= 0.5) return COL.usa;
     return mix('1b2940', '6a1a20', s.hold / 100);
   }
-  const lastFill = {}, lastSig = { pins: '', bld: '', ops: '', hints: '' };
+  const lastFill = {}, lastSig = { pins: '', bld: '', ops: '', hints: '', xing: '' };
+  const bpos = new Map(); // building uid -> where its model stands (for planes and trains)
+  const traffic = createTraffic();
   let hints = [];
   function render(G) {
     for (const ab of Object.keys(paths)) {
@@ -235,46 +258,48 @@ export function createMap(root, ctx) {
       const live = G.phase > 0 && isHeld(G, CITIES[r.a].st) && isHeld(G, CITIES[r.b].st);
       if (r.live !== live) { r.live = live; r.e.setAttribute('class', live ? 'rail live' : 'rail'); }
     }
+    for (const r of roadEls) {
+      const live = G.phase > 0 && isHeld(G, CITIES[r.a].st) && isHeld(G, CITIES[r.b].st);
+      if (r.live !== live) { r.live = live; r.g.setAttribute('class', live ? 'road live' : 'road'); }
+    }
     for (const [id, g] of Object.entries(cityEls)) {
       const meta = CITIES[id];
       g.classList.toggle('held', !!meta && G.phase > 0 && isHeld(G, meta.st));
     }
-    // institutions (rebuilt only when they change)
-    const bsig = (zoomedIn ? 'z' : 'o') + G.bld.map(b => b.uid + b.type + (b.done == null ? 'd' : 'c')).join(',');
+    // institutions (rebuilt only when they change): each stands on its own site around its city, inside the
+    // city's state; checkpoints stand on the road where it crosses the state line.
+    const bsig = (zoomedIn ? 'z' : 'o') + G.bld.map(b => b.uid + b.type + (b.slot ?? '') + (b.site || '') + (b.done == null ? 'd' : 'c')).join(',');
     if (bsig !== lastSig.bld) {
       lastSig.bld = bsig;
       gBld.textContent = '';
-      const byCity = {};
-      for (const b of G.bld) (byCity[b.city] || (byCity[b.city] = [])).push(b);
-      // Isometric 3D miniatures. Zoomed out: the city's principal institution with a count badge.
-      // Zoomed in: every institution, laid out on a small isometric grid behind the city.
+      bpos.clear();
       const drawModel = (g, b, x, y, size) => {
         const a = { x: x - size / 2, y: y - size * 40 / 52, width: size, height: size };
         if (b.done != null) { el('use', { href: `#m-${b.type}`, ...a, opacity: .4 }, g); el('use', { href: '#m-scaffold', ...a }, g); }
         else el('use', { href: `#m-${b.type}`, ...a }, g);
       };
-      const cities = Object.entries(byCity).sort((p, q) => CITY_POS[p[0]].y - CITY_POS[q[0]].y);
-      for (const [city, list] of cities) {
-        const c = CITY_POS[city];
-        const g = el('g', { class: 'bld', 'data-city': city }, gBld);
-        if (!zoomedIn) {
-          const main = list.find(b => b.done == null && BUILDINGS[b.type].from) || list.find(b => b.done == null) || list[0];
-          drawModel(g, main, c.x + 9, c.y + 0.5, 27);
-          if (list.length > 1) {
-            el('rect', { x: c.x + 15, y: c.y - 19, width: 7.4, height: 6.4, rx: 2.2, fill: '#e5484d', stroke: list.some(b => b.done != null) ? '#d9b566' : '#07080a', 'stroke-width': .6 }, g);
-            const t = el('text', { x: c.x + 18.7, y: c.y - 14.2, 'text-anchor': 'middle', 'font-size': 4.6, 'font-weight': 700, 'font-family': 'JetBrains Mono, monospace', fill: '#fff' }, g); t.textContent = list.length;
-          }
-          continue;
+      const place = [], next = {};
+      for (const b of G.bld) {
+        let x, y, sc = 1;
+        if (b.site && XING[b.site]) { x = XING[b.site].x; y = XING[b.site].y + 1.2; sc = 0.72; }
+        else {
+          const sites = CITY_SITES[b.city] || [], c = CITY_POS[b.city];
+          const slot = b.slot ?? (next[b.city] = (next[b.city] ?? 50) + 1);
+          const st = sites.length ? sites[slot % sites.length] : null;
+          // more institutions than sites (tiny Rhode Island): share a site, smaller and nudged, still inside the state
+          const extra = slot >= sites.length ? (slot % 2 ? 1 : -1) : 0;
+          if (st) { x = st[0] + extra * 1.3; y = st[1] + extra * 0.5; sc = (st[2] || 1) * (extra ? 0.72 : 1); } else { x = c.x + 7; y = c.y + 1; }
         }
-        const size = 14, tw = size * 35 / 52; // a tile's on-screen width
-        const n = Math.min(list.length, 8), cols = n <= 4 ? 2 : 3;
-        const cells = list.slice(0, 8).map((b, k) => ({ b, i: k % cols, j: Math.floor(k / cols) }));
-        const pos = cells.map(q => ({ ...q, x: (q.i - q.j) * tw / 2, y: (q.i + q.j) * tw / 4 }));
-        const maxY = Math.max(...pos.map(q => q.y)), midX = (Math.max(...pos.map(q => q.x)) + Math.min(...pos.map(q => q.x))) / 2;
-        pos.sort((p, q) => (p.i + p.j) - (q.i + q.j) || p.i - q.i);
-        for (const q of pos) drawModel(g, q.b, c.x + 6 + q.x - midX, c.y - 3.5 + q.y - maxY, size);
+        place.push({ b, x, y, size: (zoomedIn ? 15 : 18) * sc });
+      }
+      place.sort((p, q) => p.y - q.y);
+      for (const p of place) {
+        const g = el('g', { class: 'bld', ...(p.b.site ? { 'data-st': p.b.st } : { 'data-city': p.b.city }) }, gBld);
+        drawModel(g, p.b, p.x, p.y, p.size);
+        bpos.set(p.b.uid, p);
       }
     }
+    traffic.sync(G, { roads: roadEls, rails: railEls, bpos });
     // advisor highlights
     const zf = 1 / Math.pow(Math.max(1, 1040 / vb.w), 0.7); // markers grow slowly with zoom
     const hsig = hints.join(',') + '|' + zf.toFixed(2);
@@ -282,7 +307,7 @@ export function createMap(root, ctx) {
       lastSig.hints = hsig;
       gHint.textContent = '';
       hints.forEach((id, k) => {
-        const c = CITY_POS[id]; if (!c) return;
+        const c = CITY_POS[id] || XING[id]; if (!c) return;
         el('circle', { cx: c.x, cy: c.y, r: 7 * zf, class: 'hintring' }, gHint);
         el('circle', { cx: c.x, cy: c.y, r: 3.4 * zf, fill: '#d9b566', stroke: '#07080a', 'stroke-width': .6 * zf }, gHint);
         const t = el('text', { x: c.x, y: c.y + 1.5 * zf, 'text-anchor': 'middle', 'font-size': 4.2 * zf, 'font-weight': 800, 'font-family': 'JetBrains Mono, monospace', fill: '#1a1405' }, gHint); t.textContent = k + 1;
@@ -324,6 +349,18 @@ export function createMap(root, ctx) {
         el('circle', { r: 7.4, class: 'disc' }, g);
         useIcon(e.icon, 0, 0, 8.4, g);
         el('circle', { r: 13, class: 'hit' }, g);
+      }
+    }
+    // the selected state's road crossings: where checkpoints can stand
+    const xsig = (SHAPE[selected] && G.phase > 0 && G.decrees.d_checkpoints != null ? selected : '') + '|' + G.bld.filter(b => b.site).length + '|' + (1040 / vb.w).toFixed(1);
+    if (xsig !== lastSig.xing) {
+      lastSig.xing = xsig;
+      gXing.textContent = '';
+      if (xsig[0] !== '|') {
+        const zs = 1 / Math.pow(Math.max(1, 1040 / vb.w), 0.6);
+        for (const x of CROSSINGS) if ((x.a === selected || x.b === selected) && !G.bld.some(b => b.site === x.id)) {
+          el('path', { d: `M${x.x} ${x.y - 3.2 * zs}L${x.x + 3.2 * zs} ${x.y}L${x.x} ${x.y + 3.2 * zs}L${x.x - 3.2 * zs} ${x.y}Z`, class: 'xmark', 'stroke-width': 0.7 * zs }, gXing);
+        }
       }
     }
     // selection marker
@@ -381,23 +418,9 @@ export function createMap(root, ctx) {
     c2d.setTransform(dpr * v.s, 0, 0, dpr * v.s, dpr * v.ox, dpr * v.oy);
     const px = 1 / v.s; // one screen pixel in world units
     if (G.phase > 0) {
-      // Trains: glowing carriages with trails along live rails
+      // Cars, trains and planes (3D, drawn back to front)
+      traffic.frame(c2d, dt, running, v.s);
       c2d.globalCompositeOperation = 'lighter';
-      let n = 0;
-      railEls.forEach((r, i) => {
-        if (!r.live || n >= 18 || i % 2) return;
-        n++;
-        const A = CITY_POS[r.a], B = CITY_POS[r.b];
-        const len = Math.hypot(B.x - A.x, B.y - A.y);
-        const u = ((t * 16 / len) + i * 0.37) % 2, dir = u > 1 ? -1 : 1, p = u > 1 ? 2 - u : u;
-        const x = A.x + (B.x - A.x) * p, y = A.y + (B.y - A.y) * p;
-        const ux = (B.x - A.x) / len * dir, uy = (B.y - A.y) / len * dir;
-        const g = c2d.createLinearGradient(x, y, x - ux * 14, y - uy * 14);
-        g.addColorStop(0, 'rgba(255,214,140,.9)'); g.addColorStop(1, 'rgba(255,214,140,0)');
-        c2d.strokeStyle = g; c2d.lineWidth = 1.6; c2d.lineCap = 'round';
-        c2d.beginPath(); c2d.moveTo(x, y); c2d.lineTo(x - ux * 14, y - uy * 14); c2d.stroke();
-        c2d.fillStyle = '#fff1d6'; c2d.beginPath(); c2d.arc(x, y, 1.15, 0, 7); c2d.fill();
-      });
       // Front lines: ember glow + artillery flashes
       for (const [ab, s] of Object.entries(G.st)) {
         if (s.exile || !(s.hold > 0.5 && s.hold < 99.5)) continue;

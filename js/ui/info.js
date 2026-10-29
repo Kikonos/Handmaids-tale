@@ -18,7 +18,8 @@ import { CLASS_INFO, POOL_INFO, figure, portrait } from './art.js';
 import { meter, fxChips, esc } from './widgets.js';
 import { icon } from './icons.js';
 import { model } from './models.js';
-import { recommendForCity } from '../engine/advisor.js';
+import { recommendForCity, bestCrossing } from '../engine/advisor.js';
+import { CROSSINGS } from '../data/sites.js';
 
 const C = { red: '#e5484d', gold: '#d9b566', blue: '#5b8def', green: '#3dd68c', amber: '#ffb224', violet: '#9e8cfc', slate: '#8d95a3' };
 const DEC = Object.fromEntries(DECREES.map(d => [d.id, d]));
@@ -182,6 +183,7 @@ export function infoSheet(G, key, canBack = false) {
     const unl = B.unlock ? DEC[B.unlock] : null;
     const unlocked = !B.unlock || (G && G.decrees[B.unlock] != null);
     let how = unl ? `Enact the decree <b>${unl.name}</b>${G ? (unlocked ? ' <span class="good">(enacted)</span>' : ' <span class="warn">(not yet)</span>') : ''}, then tap a city you hold on the map and choose it under Build.` : 'Tap a city you hold on the map and choose it under Build.';
+    if (B.unique === 'site') how = `${unl ? `Enact the decree <b>${unl.name}</b>${G ? (unlocked ? ' <span class="good">(enacted)</span>' : ' <span class="warn">(not yet)</span>') : ''}. ` : ''}Checkpoints stand only where a road crosses a state line, so their number is limited: there are ${CROSSINGS.length} crossings in all. Tap a state on the map and choose a crossing under Border checkpoints. At least one side of the line must be held.`;
     if (B.unique === 'city') how += ' One per city.';
     if (B.unique === 'nation') how += ` Only one in the nation${B.cities ? `, at ${B.cities.map(c => CITY_POS[c]?.name).join(', ')}` : ''}.`;
     if (B.needsAunts) how += ` Needs Aunts on staff (${B.needsAunts} for a converted centre, 20 purpose-built).`;
@@ -191,8 +193,11 @@ export function infoSheet(G, key, canBack = false) {
     if (B.names.length > 1) body += section('book', 'Names', `<p class="muted">Each new one takes the next name: ${B.names.slice(0, 6).map(esc).join(', ')}…</p>`);
     if (G) body += section('clock', 'Right now', kvs([['Operating', built(G, id)], ['Under construction', G.bld.filter(b => b.type === id && b.done != null).length]]));
     if (G && G.phase > 0) {
-      const best = Object.keys(CITIES).flatMap(c => recommendForCity(G, c, undefined, 20)).filter(r => r.type === id).sort((a, b) => b.score - a.score)[0];
-      if (best) {
+      const best = B.unique === 'site' ? bestCrossing(G) : Object.keys(CITIES).flatMap(c => recommendForCity(G, c, undefined, 20)).filter(r => r.type === id).sort((a, b) => b.score - a.score)[0];
+      if (best?.site) {
+        body += section('bulb', 'Advisor', `<p>${esc(best.reason)}</p>`);
+        actions = `<button class="btn" data-act="state" data-arg="${best.st}">${icon('map')}Best site: ${STATES[best.st].name}</button>`;
+      } else if (best) {
         body += section('bulb', 'Advisor', `<p>${esc(best.reason)}</p>`);
         actions = `<button class="btn" data-act="city" data-arg="${best.city}">${icon('pin')}Best site: ${CITY_POS[best.city].name}</button>`;
       }

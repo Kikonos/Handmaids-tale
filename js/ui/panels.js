@@ -84,10 +84,24 @@ export function stateDrawer(G, ab) {
   } else {
     h += `<p class="lead"${ti('mech:exile')} style="margin-top:12px">Alaska and Hawaii remain under the legitimate United States government. Anchorage hosts the government-in-exile; refugees there get one five-minute phone call a week. The Republic cannot reach them.</p>`;
   }
+  if (G.phase > 0 && !s.exile) {
+    const xs = A.crossingsOf(G, ab);
+    if (xs.length) {
+      const unlocked = G.decrees.d_checkpoints != null;
+      h += `<h3>${icon('barrier')}Border checkpoints <small>${xs.filter(q => q.bld).length} of ${xs.length} crossings</small>${hq('bld:checkpoint')}</h3>`;
+      if (!unlocked) h += `<p class="muted" style="font-size:12.5px;margin-top:-4px">${xs.length} road${xs.length > 1 ? 's cross' : ' crosses'} this state's borders. Checkpoints can be built on them once <b>Checkpoints</b> is decreed.</p>`;
+      for (const { x, bld, av } of xs) {
+        const other = x.a === ab ? x.b : x.a;
+        const title = `Line with ${STATES[other].name}`;
+        if (bld) h += `<div class="card inst"><span class="mtile"${ti('bld:checkpoint')}>${model('checkpoint', '', bld.done != null)}</span><div style="flex:1;min-width:0"><b style="font-size:13.5px">${title}</b><div class="muted" style="font-size:11.5px;margin-top:2px">${A.crossingName(x)} · ${bld.done != null ? `Under construction · ${Math.max(0, bld.done - G.day)} days` : 'Manned'}</div></div><div class="ibtns"><button class="btn sm" data-act="demolish" data-arg="${bld.uid}">Close</button></div></div>`;
+        else if (unlocked) h += actBtn({ act: 'build', arg: `checkpoint||0|${x.id}`, art: model('checkpoint'), color: BUILDINGS.checkpoint.color, title, desc: `${A.crossingName(x)}${av.ok ? '' : ' · ' + av.msg}`, cost: '₲20M · 4d', ok: av.ok });
+      }
+    }
+  }
   if (cities.length) {
     h += `<h3>${icon('pin')}Cities</h3>`;
     for (const c of cities) {
-      const n = G.bld.filter(b => b.city === c).length;
+      const n = G.bld.filter(b => b.city === c && !b.site).length;
       h += actBtn({ act: 'city', arg: c, ic: CITIES[c].rank === 3 ? 'columns' : 'pin', color: C.slate, title: CITY_POS[c].name, desc: G.phase === 0 ? '' : `${n} institution${n === 1 ? '' : 's'}${isHeld(G, ab) ? '' : ' · not under control'}`, cost: icon('chevron-right'), plain: true });
     }
   }
@@ -101,7 +115,7 @@ export function cityDrawer(G, city) {
   const back = `<button class="close" data-act="state" data-arg="${ab}">${icon('chevron-left')}</button>`;
   let h = head(P.name, `${STATES[ab]?.name || ''} · ${['', 'Regional city', 'Major city', 'Capital-class city'][Ct?.rank || 1]}`, Ct?.rank === 3 ? 'columns' : 'pin', held ? C.red : C.slate, back);
   h += '<div class="dbody">';
-  const list = G.bld.filter(b => b.city === city);
+  const list = G.bld.filter(b => b.city === city && !b.site);
   const slots = 2 + (Ct?.rank || 1) * 2;
   if (G.phase === 0) h += `<p class="lead">Nothing can be built until the Republic exists. Grow the chapter in ${STATES[ab].name} instead.</p>`;
   const recs = held ? recommendForCity(G, city) : [];
@@ -130,7 +144,7 @@ export function cityDrawer(G, city) {
       B.tiers.forEach((T, i) => {
         if (T.unlock && G.decrees[T.unlock] == null) return;
         const av = A.buildAvailability(G, type, city, i);
-        if (!av.ok && /Already one|Only one|Only at/.test(av.msg)) return;
+        if (!av.ok && /Already one|Only one|Only at|road crosses/.test(av.msg)) return;
         const nextName = B.unique ? B.names[0] : B.names[(G.nameIdx[type] || 0) % B.names.length];
         const cap = T.cap ? (B.housing ? ` · houses ${fmtNum(T.cap)}` : ` · ${fmtNum(T.cap)} per ${T.days}-day course`) : '';
         h += actBtn({ act: 'build', arg: `${type}|${city}|${i}`, art: model(type), color: B.color, title: `${B.label}${B.tiers.length > 1 ? ` · ${T.name}` : ''}`, desc: `${av.ok ? esc(nextName) : av.msg}${cap}`, cost: `₲${T.cost}M · ${T.build}d`, ok: av.ok, info: 'bld:' + type });
@@ -147,6 +161,11 @@ export function cityDrawer(G, city) {
 // A recommendation as a build (or replace) button. withCity: show the city name (national list).
 function recBtn(G, r, withCity, n = 0) {
   const B = BUILDINGS[r.type], T = B.tiers[r.tier], old = r.replace != null ? G.bld.find(b => b.uid === r.replace) : null;
+  if (r.site) {
+    const x = A.CROSSING_BY_ID[r.site], other = r.st === x.a ? x.b : x.a;
+    const btn = actBtn1({ act: 'build', arg: `checkpoint||0|${r.site}`, art: model('checkpoint'), color: B.color, title: `Checkpoint on the ${STATES[r.st].name}–${STATES[other].name} line`, desc: esc(r.reason), cost: `₲${T.cost}M`, ok: r.afford });
+    return `<div class="rec">${n ? `<span class="recn">${n}</span>` : ''}${btn}<button class="ainfo" data-act="state" data-arg="${r.st}" aria-label="Open state">${icon('map')}</button></div>`;
+  }
   const where = withCity ? ` in ${CITY_POS[r.city].name}` : '';
   const title = old ? `Replace ${esc(old.name)} with ${B.label}${where}` : `${B.label}${B.tiers.length > 1 ? ` · ${T.name}` : ''}${where}`;
   const cost = old ? T.cost - A.salvage(old) : T.cost;

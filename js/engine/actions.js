@@ -5,6 +5,7 @@ import {
 } from './core.js';
 import { DECREE_BY_ID } from '../data/decrees.js';
 import { CITY_POS, STATE_SHAPES } from '../data/geo.js';
+import { CROSSINGS, ROADS } from '../data/sites.js';
 
 const ok = msg => ({ ok: true, msg });
 const no = msg => ({ ok: false, msg });
@@ -246,6 +247,7 @@ export function buildAvailability(G, type, city, tier = 0, ignoreUid = null, cre
   const bld = ignoreUid == null ? G.bld : G.bld.filter(b => b.uid !== ignoreUid);
   const B = BUILDINGS[type];
   if (G.phase === 0) return no('Seize power first');
+  if (B.unique === 'site') return no('Built where a road crosses a state line: open a state');
   if (!cityHeld(G, city)) return no('City not under Gilead control');
   if (B.unlock && G.decrees[B.unlock] == null) return no('Requires decree: ' + (DECREE_BY_ID[B.unlock]?.name || B.unlock));
   const T = B.tiers[tier];
@@ -255,11 +257,12 @@ export function buildAvailability(G, type, city, tier = 0, ignoreUid = null, cre
   if (B.unique === 'nation' && bld.some(b => b.type === type)) return no('Only one may exist');
   if (B.cities && !B.cities.includes(city)) return no('Only at ' + B.cities.map(c => CITY_POS[c].name).join(', '));
   const slots = 2 + CITIES[city].rank * 2;
-  if (bld.filter(b => b.city === city).length >= slots) return no(`City full (${slots} institutions)`);
+  if (bld.filter(b => b.city === city && !b.site).length >= slots) return no(`City full (${slots} institutions)`);
   if (G.res.treasury + credit < T.cost) return no(`Needs ₲${T.cost - credit}M`);
   return ok('');
 }
-export function build(G, type, city, tier = 0) {
+export function build(G, type, city, tier = 0, site = null) {
+  if (BUILDINGS[type].unique === 'site') return buildCheckpoint(G, site);
   const a = buildAvailability(G, type, city, tier);
   if (!a.ok) return a;
   const B = BUILDINGS[type], T = B.tiers[tier];
@@ -276,15 +279,58 @@ export function build(G, type, city, tier = 0) {
 function startConstruction(G, type, city, tier, name, keep = {}) {
   const T = BUILDINGS[type].tiers[tier];
   const speed = 1 + (M(G, 'adm') || 0) + (G._admBonus || 0);
-  const b = { uid: G.uid++, type, tier, city, name, start: G.day, done: G.day + Math.max(2, Math.round(T.build / speed)), cohorts: [], occ: 0, ...keep };
+  // slot: which of the city's map sites it stands on (the lowest free one)
+  let slot = 0; if (!keep.site) while (G.bld.some(b => b.city === city && !b.site && b.slot === slot)) slot++;
+  const b = { uid: G.uid++, type, tier, city, name, slot, start: G.day, done: G.day + Math.max(2, Math.round(T.build / speed)), cohorts: [], occ: 0, ...keep };
   G.bld.push(b);
   return b;
+}
+
+// ---------------- Checkpoints: one per road crossing of a state line ----------------
+export const CROSSING_BY_ID = Object.fromEntries(CROSSINGS.map(c => [c.id, c]));
+const nearestCity = (x, y, st) => {
+  let best = null, bd = 1e9;
+  for (const [id, c] of Object.entries(CITIES)) {
+    if (STATES[c.st].exile || (st && c.st !== st)) continue;
+    const d = Math.hypot(CITY_POS[id].x - x, CITY_POS[id].y - y);
+    if (d < bd) { bd = d; best = id; }
+  }
+  return best;
+};
+// The crossing's road, named after the cities it joins.
+export const crossingName = x => { const r = ROADS[x.road]; return `${CITY_POS[r.a].name} – ${CITY_POS[r.b].name} road`; };
+export function crossingHost(G, x) { return isHeld(G, x.a) ? x.a : isHeld(G, x.b) ? x.b : null; }
+export function checkpointAvailability(G, site, credit = 0) {
+  const x = CROSSING_BY_ID[site], B = BUILDINGS.checkpoint;
+  if (!x) return no('Choose a road crossing on a state line');
+  if (G.phase === 0) return no('Seize power first');
+  if (G.decrees[B.unlock] == null) return no('Requires decree: ' + DECREE_BY_ID[B.unlock].name);
+  if (G.bld.some(b => b.site === site)) return no('A checkpoint already stands here');
+  if (!crossingHost(G, x)) return no('Neither side of this line is held');
+  if (G.res.treasury + credit < B.tiers[0].cost) return no(`Needs ₲${B.tiers[0].cost - credit}M`);
+  return ok('');
+}
+export function buildCheckpoint(G, site) {
+  const a = checkpointAvailability(G, site);
+  if (!a.ok) return a;
+  const x = CROSSING_BY_ID[site], st = crossingHost(G, x), T = BUILDINGS.checkpoint.tiers[0];
+  add(G, 'treasury', -T.cost);
+  const other = st === x.a ? x.b : x.a;
+  const name = `Checkpoint · ${STATES[st].name}–${STATES[other].name} line`;
+  startConstruction(G, 'checkpoint', nearestCity(x.x, x.y, st) || nearestCity(x.x, x.y), 0, name, { site, st });
+  log(G, `Construction begins: ${name}, on the ${crossingName(x)}.`, 'build');
+  return ok(`${name} — construction begun`);
+}
+// Every crossing touching a state, with its checkpoint (if any).
+export function crossingsOf(G, ab) {
+  return CROSSINGS.filter(x => x.a === ab || x.b === ab).map(x => ({ x, bld: G.bld.find(b => b.site === x.id) || null, av: checkpointAvailability(G, x.id) }));
 }
 // Replacing an institution salvages part of its cost: 25% of a working one, 50% of one still being built.
 export const salvage = b => Math.round(BUILDINGS[b.type].tiers[b.tier].cost * (b.done != null ? 0.5 : 0.25));
 export function replaceAvailability(G, uid, type, tier = 0) {
   const old = G.bld.find(b => b.uid === uid);
   if (!old) return no('That institution no longer exists');
+  if (old.site || BUILDINGS[type].unique === 'site') return no('Checkpoints stand only on state lines');
   if (old.type === type && old.tier === tier) return no('It is already this');
   if (old.type === type && tier < old.tier) return no('Cannot downgrade');
   return buildAvailability(G, type, old.city, tier, uid, salvage(old));
@@ -298,7 +344,7 @@ export function replace(G, uid, type, tier = 0) {
   if (upgrade) {
     G.bld.splice(G.bld.indexOf(old), 1);
     add(G, 'treasury', refund - T.cost);
-    startConstruction(G, type, old.city, tier, old.name, { cohorts: old.cohorts || [], occ: old.occ || 0 });
+    startConstruction(G, type, old.city, tier, old.name, { cohorts: old.cohorts || [], occ: old.occ || 0, slot: old.slot });
     log(G, `${old.name} is rebuilt as a ${T.name.toLowerCase()} (${CITY_POS[old.city].name}).`, 'build', old.city);
     return ok(`${old.name}: upgrade begun`);
   }
