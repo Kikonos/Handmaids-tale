@@ -58,6 +58,26 @@ function counts(G) {
   for (const b of G.bld) if (b.done == null) c[b.type] = (c[b.type] || 0) + 1;
   return c;
 }
+// Tunables for the Republic's economy. Flows are per day, but Treasury, Supplies and Power are paid into the
+// stock once a month, at the Ledger: what you hold on the first of the month is what has to cover the bills.
+export const ECON = {
+  tax: 0.03,          // ₲M a day per million people (Economen labour, tithes, seized property)
+  bldUpkeep: 0.3,     // share of each institution's listed upkeep actually charged
+  guardians: 0.12,    // ₲M a day per 100,000 Guardians
+  eyes: 0.015,        // ₲M a day per 1,000 Eyes
+  troops: 0.3,        // ₲M a day per 100,000 Guardians on an offensive
+  mexico: 0.6,        // ₲M a day from the Mexican trade deal
+  agri: 0.045,
+  exports: 3,         // supplies a day each Office of Trade ships abroad        // supplies a day per 1,000 Unwomen working an Agricultural Colony
+  workers: 25000,     // Economen a State Workshop needs per ₲0.6M a day it produces
+  harvest: 0.985,     // the population feeds itself at 98.5%: the rest must come from colonies and markets
+};
+export const LEDGER_DAYS = 30;
+// Power cannot be hoarded: the Council only grants it up to a ceiling (more seats, a higher ceiling).
+export const powerCap = G => 150 + 10 * seated(G).length;
+export const supplyCap = G => 300 + gileadPop(G) / 1e6 * 10;
+export const cover = (n, k) => 1 - Math.exp(-n / k); // diminishing returns: the 10th wall adds little
+
 function economyTick(G) {
   const r = G.res, p = G.pop, cl = p.cls;
   const popM = gileadPop(G) / 1e6;
@@ -65,40 +85,94 @@ function economyTick(G) {
   const adm = 1 + G._admBonus + M(G, 'adm') + councilFill(G) * 0.15;
   const sanctions = clamp(-r.standing / 100, 0, 1) * 0.5 * (1 - M(G, 'sanctionRelief')) + (G.flags.sanctions || 0);
   G._sanctions = sanctions;
-  const dip = portfolioBonus(G, 'dip');
-  const income = popM * 0.105 * (1 + M(G, 'income')) * adm * (1 - clamp(sanctions, 0, 0.8)) + (G.flags.mexicoDeal ? 1.5 : 0);
-  let upkeep = 0;
-  for (const b of G.bld) if (b.done == null) upkeep += BUILDINGS[b.type].tiers[b.tier].upkeep || 0.08;
-  upkeep += cl.guardians / 1e5 * 0.45 + cl.eyes / 1000 * 0.06 + G.army.committed / 1e5 * 0.8;
-  G._income = income; G._upkeep = upkeep;
-  add(G, 'treasury', income - upkeep);
+  const sanc = 1 - clamp(sanctions, 0, 0.8), dip = portfolioBonus(G, 'dip');
+  const arrears = r.treasury < 0;
 
+  // ---- Treasury ----
+  const taxes = popM * ECON.tax * (1 + M(G, 'income')) * adm * sanc;
+  let works = 0, trade = 0, wneed = 0;
+  for (const b of G.bld) if (b.done == null && BUILDINGS[b.type].income) {
+    const inc = BUILDINGS[b.type].tiers[b.tier].income;
+    if (b.type === 'workshop') { works += inc; wneed += inc / 0.6 * ECON.workers; }
+    else trade += inc;
+  }
+  const staffed = wneed ? Math.min(1, cl.economen / wneed) : 1;
+  G._staffed = staffed;
+  works *= staffed * adm * (1 - clamp(sanctions, 0, 0.8) * 0.4);
+  trade *= (1 + 0.25 * Math.min(4, n.agricolony || 0)) * sanc * clamp(1 + r.standing / 200 + dip * 0.3, 0.4, 1.6);
+  // Offices of Trade ship produce abroad: they earn only while the granaries can spare it.
+  const offices = n.exchange || 0, spare = G._granary === 'ok' || G._granary === 'full';
+  const exports = spare ? offices * ECON.exports : 0;
+  if (!spare) trade = 0;
+  const mexico = G.flags.mexicoDeal ? ECON.mexico : 0;
+  const income = taxes + works + trade + mexico;
+  let upB = 0;
+  for (const b of G.bld) if (b.done == null) upB += (BUILDINGS[b.type].tiers[b.tier].upkeep || 0.08) * ECON.bldUpkeep;
+  const upG = cl.guardians / 1e5 * ECON.guardians + cl.eyes / 1000 * ECON.eyes + G.army.committed / 1e5 * ECON.troops;
+  const upkeep = upB + upG;
+  G._income = income; G._upkeep = upkeep;
+  G._incomeParts = { taxes, works, trade, mexico, buildings: upB, forces: upG };
+
+  // ---- Supplies ----
   const markets = n.market || 0;
   let agri = 0;
   for (const b of G.bld) if (b.type === 'agricolony' && b.done == null) agri += b.occ;
-  const prod = popM * 0.47 + agri / 1000 * 0.11;
-  const use = popM * 0.47 * (1 + M(G, 'supplyUse') - Math.min(0.15, markets * 0.015)) + cl.guardians / 1e5 * 0.5 + G.ops.length * 1.2;
-  G._supplyNet = prod - use;
-  add(G, 'supplies', prod - use);
-  r.supplies = Math.min(r.supplies, 300 + popM * 6);
+  const prod = popM * 0.47 * ECON.harvest + agri / 1000 * ECON.agri;
+  const use = popM * 0.47 * (1 + M(G, 'supplyUse') - 0.08 * cover(markets, 6)) + cl.guardians / 1e5 * 0.3 + G.army.committed / 1e4 * 0.25 + exports;
+  G._supplyNet = prod - use; G._supplyUse = use;
 
+  // ---- Power ----
+  const powerGain = Math.max(0, 0.15 + M(G, 'powerDay') * 0.5 + seated(G).length * 0.02 + councilFill(G) * 0.35 + (r.stability - 50) / 250);
+  G._powerDay = powerGain;
+
+  // Paid into the stock once a month
+  const L = G.ledger || (G.ledger = { treasury: 0, supplies: 0, power: 0 });
+  L.treasury += income - upkeep; L.supplies += prod - use; L.power += powerGain;
+  if (G.day % LEDGER_DAYS === 0) settleLedger(G);
+
+  // ---- The meters drift slowly towards targets set by the state of the Republic ----
+  const fill = r.supplies / supplyCap(G);
+  const famine = r.supplies <= 0, rationing = !famine && fill < 0.15, fed = fill >= 0.6;
+  G._granary = famine ? 'famine' : rationing ? 'rationing' : fed ? 'full' : 'ok';
   const contested = Object.values(G.st).filter(s => !s.exile && s.hold > 0.5 && s.hold < 99.5).length;
-  add(G, 'power', 0.2 + M(G, 'powerDay') + seated(G).length * 0.03 + councilFill(G) * 0.6 + (r.stability - 50) / 150);
-
-  const famine = r.supplies <= 0 ? 25 : 0;
-  const stabT = 44 + r.fear * 0.2 + r.piety * 0.15 - r.resistance * 0.4 - contested * 0.35 + Math.min(12, markets * 1.2) - famine - sanctions * 14 + (r.treasury < 0 ? -10 : 0);
-  r.stability = clamp(r.stability + (stabT - r.stability) * 0.02, 0, 100);
-  const pietyT = 22 + Math.min(20, (n.church || 0) * 3) + portfolioBonus(G, 'faith') * 12 + Math.min(10, (n.wifeschool || 0) * 2);
+  const births = p.birthsYear || 0;
+  const stabT = 40 + r.fear * 0.18 + r.piety * 0.15 - r.resistance * 0.35 - contested * 0.35 + 10 * cover(markets, 5)
+    + (famine ? -20 : rationing ? -6 : fed ? 3 : 0) - sanctions * 14 + (arrears ? -10 : 0) + Math.min(6, births / 1000);
+  r.stability = clamp(r.stability + (stabT - r.stability) * 0.008, 0, 100);
+  const pietyT = 20 + 20 * cover(n.church || 0, 5) + portfolioBonus(G, 'faith') * 12 + 10 * cover(n.wifeschool || 0, 3) + Math.min(15, births / 400) * (1 + M(G, 'birthPiety'));
   r.piety = clamp(r.piety + (pietyT - r.piety) * 0.004, 0, 100);
-  const fearT = Math.min(40, (n.wall || 0) * 4) + Math.min(20, cl.eyes / 2500) + Math.min(10, (n.checkpoint || 0) * 1.5);
-  r.fear = clamp(r.fear + (fearT - r.fear) * 0.008, 0, 100);
-  const standT = -12 - Math.min(20, (n.wall || 0) * 1.5) + (n.newbethlehem ? 18 : 0) + (G.flags.mexicoDeal ? 6 : 0) + dip * 10 - (G.decrees.d_muzzles != null ? 6 : 0);
+  const fearT = 8 + 32 * cover(n.wall || 0, 6) + 20 * cover(cl.eyes, 25000) + 10 * cover(n.checkpoint || 0, 8) + Math.min(10, (G.flags.proc || 0) / 20000);
+  r.fear = clamp(r.fear + (fearT - r.fear) * 0.005, 0, 100);
+  const standT = -12 - 20 * cover(n.wall || 0, 8) + (n.newbethlehem ? 18 : 0) + (G.flags.mexicoDeal ? 6 : 0) + dip * 10 - (G.decrees.d_muzzles != null ? 6 : 0);
   r.standing = clamp(r.standing + (standT - r.standing) * 0.002 + M(G, 'standingDay'), -100, 100);
 
-  const handUnrest = cl.handmaids / 20000 * 0.02 * Math.max(0.2, 1 + M(G, 'handmaidUnrest'));
-  const supp = cl.eyes / 10000 * 0.07 * (1 + portfolioBonus(G, 'int') * 0.5) + (n.checkpoint || 0) * 0.004 + Object.values(G.st).filter(s => s.heli).length * 0.006 + r.fear * 0.0006;
-  const grow = 0.035 + handUnrest + contested * 0.002 + Math.max(0, -r.standing) * 0.00025 + (n.jezebels || 0) * 0.003 + M(G, 'maydayForeign') * 0.01 + (r.supplies <= 0 ? 0.05 : 0);
-  add(G, 'resistance', grow - supp);
+  // Mayday: always somewhere. The Eyes, checkpoints, helicopters and fear hold it down; Handmaids, war,
+  // hunger and the world's contempt feed it.
+  const handUnrest = Math.min(20, cl.handmaids / 2500) * Math.max(0.2, 1 + M(G, 'handmaidUnrest'));
+  const supp = 16 * cover(cl.eyes, 30000) * (1 + portfolioBonus(G, 'int') * 0.5) + 8 * cover(n.checkpoint || 0, 8)
+    + Object.values(G.st).filter(s => s.heli).length * 1 + r.fear * 0.08 + Math.min(5, (G.flags.proc || 0) / 20000);
+  const drivers = 20 + handUnrest + contested * 1.2 + Math.max(0, -r.standing) * 0.15 + 8 * cover(n.jezebels || 0, 3) + M(G, 'maydayForeign') * 10
+    + (famine ? 15 : rationing ? 5 : 0) + (100 - r.stability) * 0.12;
+  const resT = drivers * (1 - Math.min(0.8, cover(supp, 30))); // repression drives it underground, never out
+  r.resistance = clamp(r.resistance + (clamp(resT, 0, 100) - r.resistance) * 0.006, 0, 100);
+  G._resT = resT; G._supp = supp;
+}
+
+// The monthly Ledger: income, rations and the Council's mandate are paid into the stock.
+export function settleLedger(G) {
+  const L = G.ledger, r = G.res;
+  if (!L) return;
+  const t = L.treasury, sp = L.supplies;
+  add(G, 'treasury', t);
+  add(G, 'supplies', sp);
+  r.supplies = Math.min(r.supplies, supplyCap(G));
+  const cap = powerCap(G);
+  if (r.power < cap) r.power = Math.min(cap, r.power + L.power);
+  const pw = L.power;
+  G.ledger = { treasury: 0, supplies: 0, power: 0 };
+  G.lastLedger = { day: G.day, treasury: t, supplies: sp, power: pw };
+  if (r.treasury < 0) log(G, `The Ledger: the Treasury is ₲${Math.round(-r.treasury)}M in arrears. Institutions work at half pace and Stability suffers until the debt is cleared.`, 'alert');
+  note(G, 'ledger', '', { t, sp, pw });
 }
 
 // ---------------- Population ----------------
@@ -151,8 +225,6 @@ function populationTick(G) {
     p.births += born; p.unbabies += n - born;
     p.birthLog.push([G.day, born]);
     cl.daughters += born / 2; cl.sons += born / 2;
-    add(G, 'piety', born * 0.01 * (1 + M(G, 'birthPiety')));
-    add(G, 'stability', born * 0.004);
   }
   while (p.birthLog.length && p.birthLog[0][0] < G.day - 365) p.birthLog.shift();
   p.birthsYear = p.birthLog.reduce((a, b) => a + b[1], 0);
@@ -194,6 +266,7 @@ function buildingsTick(G) {
     let rate = T.cap / T.days;
     if (b.type === 'redcenter') rate *= auntEff;
     if (b.type === 'barracks') rate *= 1 + M(G, 'barracks');
+    if (G.res.treasury < 0) rate *= 0.5; // unpaid staff
     const src = B.from in p ? p : cl;
     if (b.type === 'redcenter' && !M(G, 'fertileFind')) continue;
     let take = Math.min(rate, T.cap - inT, src[B.from] * (B.from === 'daughters' ? 0.002 : 1));
@@ -220,7 +293,7 @@ function graduate(G, b, n) {
   const B = BUILDINGS[b.type], cl = G.pop.cls;
   if (B.to === 'processed') {
     cl.unwomen += n * 0.45; cl.economen += n * 0.35; G.pop.deaths += n * 0.2; G.stats.wallDeaths += n * 0.2;
-    add(G, 'resistance', -n * 0.0012); add(G, 'fear', n * 0.0004);
+    G.flags.procAcc = (G.flags.procAcc || 0) + n;
   } else if (B.to === 'wives') {
     cl.wives += n; cl.commanders += n * 0.3;
   } else cl[B.to] += n;
@@ -231,7 +304,7 @@ const cityName = c => CITY_POS[c]?.name || c;
 function warTick(G) {
   const r = G.res;
   const mil = portfolioBonus(G, 'mil');
-  const offense = 1 + M(G, 'offense') + mil * 0.3;
+  const offense = (1 + M(G, 'offense') + mil * 0.3) * (r.treasury < 0 ? 0.7 : 1);
   const usa = G.army.usa;
   const diffMult = G.difficulty === 'easy' ? 0.7 : G.difficulty === 'hard' ? 1.3 : 1;
   for (const [ab, s] of Object.entries(G.st)) {
@@ -272,6 +345,7 @@ function warTick(G) {
 // ---------------- Monthly ----------------
 function monthlyTick(G) {
   history(G);
+  G.flags.proc = (G.flags.proc || 0) * 0.92 + (G.flags.procAcc || 0); G.flags.procAcc = 0; // people processed, about a year's worth
   for (const id of Object.keys(G.cmd)) {
     const c = G.cmd[id], d = COMMANDERS[id];
     if (!c.alive) continue;

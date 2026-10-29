@@ -1,8 +1,8 @@
 // Gilead: Under His Eye — application controller.
 import { newGame, fmtDate, fmtNum, gileadPop, infiltration, seated, inTraining, VERSION, VERSION_NAME, M, STATES } from './engine/core.js';
-import { tick } from './engine/sim.js';
+import { tick, powerCap, supplyCap, LEDGER_DAYS } from './engine/sim.js';
 import * as A from './engine/actions.js';
-import { resolveEvent, choiceAvailable } from './engine/events.js';
+import { resolveEvent, choiceAvailable, enqueue } from './engine/events.js';
 import { EVENT_BY_ID } from './data/events.js';
 import { PHASES } from './data/phases.js';
 import { DECREES } from './data/decrees.js';
@@ -27,7 +27,7 @@ const THEME_OF = ['conspiracy', 'republic', 'eye', 'war', 'bethlehem', 'reckonin
 applyProfile();
 const app = { censusOpen: (() => { try { const v = localStorage.getItem('gilead-census'); return v == null ? layout() !== 'phone' : v !== '0'; } catch { return layout() !== 'phone'; } })(), legend: false, G: null, map: null, tab: 'map', drawer: null, acc: 0, modal: null, lastHud: 0, lastPanel: 0, lastMap: 0, speed: 1, toastQ: [], infoStack: [], infoKey: null, codexQ: '', codexCat: 'all' };
 window.__app = app; // debugging hook
-app.A = A; app.tick = tick;
+app.A = A; app.tick = tick; app.enqueue = enqueue;
 
 // ---------------- Boot ----------------
 function boot() {
@@ -141,6 +141,7 @@ function processNotes() {
     else if (n.kind === 'lost') { sfx('lost'); toast(n.text, 'bad', null, 'alert'); }
     else if (n.kind === 'build') { sfx('build'); toast(n.text, '', null, 'columns'); }
     else if (n.kind === 'end') { G.paused = true; }
+    else if (n.kind === 'ledger') { const tb = $('#topbar'); tb.classList.remove('ledger'); void tb.offsetWidth; tb.classList.add('ledger'); if (n.t < 0 && G.res.treasury < 0) toast(`The Ledger: the Treasury is in arrears (₲${Math.round(-G.res.treasury)}M)`, 'bad', () => handleAction('info', 'mech:treasury'), 'coins'); }
   }
   if (G.pop.births > (app._births || 0) + 0.999) { if (app._births != null && G.phase > 0) sfx('birth'); app._births = Math.floor(G.pop.births); }
 }
@@ -177,14 +178,15 @@ function renderHud() {
       kpi('shield', '#5b8def', inf.toFixed(0) + '%', 'Military', { bar: inf / 0.35, key: 'mech:infiltration' }) + kpi('scan', r.suspicion > 70 ? '#e5484d' : '#ffb224', Math.round(r.suspicion) + '%', 'FBI suspicion', { bar: r.suspicion, alert: r.suspicion > 75, key: 'mech:suspicion' });
   } else {
     const net = (G._income || 0) - (G._upkeep || 0);
-    k = kpi('crown', '#d9b566', fmtNum(r.power), 'Power', { key: 'mech:power' }) + kpi('coins', '#d9b566', fmtNum(r.treasury * 1e6), 'Treasury', { delta: net, alert: r.treasury < 0, key: 'mech:treasury' }) +
-      kpi('wheat', '#8fa274', fmtNum(r.supplies), 'Supplies', { delta: G._supplyNet || 0, alert: r.supplies < 20, key: 'mech:supplies' }) +
+    // Treasury, Supplies and Power change at the monthly Ledger; the small figure is the change due next month.
+    k = kpi('crown', '#d9b566', fmtNum(r.power), 'Power', { delta: r.power >= powerCap(G) ? null : (G._powerDay || 0) * 30, bar: r.power / powerCap(G) * 100, key: 'mech:power' }) + kpi('coins', '#d9b566', fmtNum(r.treasury * 1e6), 'Treasury', { delta: net * 30, alert: r.treasury < 0, key: 'mech:treasury' }) +
+      kpi('wheat', '#8fa274', fmtNum(r.supplies), 'Supplies', { delta: (G._supplyNet || 0) * 30, bar: r.supplies / supplyCap(G) * 100, alert: G._granary === 'famine' || G._granary === 'rationing', key: 'mech:supplies' }) +
       kpi('pillar', '#3dd68c', Math.round(r.stability), 'Stability', { bar: r.stability, alert: r.stability < 20, key: 'mech:stability' }) + kpi('cross', '#d9b566', Math.round(r.piety), 'Piety', { bar: r.piety, key: 'mech:piety' }) +
       kpi('eye', '#e5484d', Math.round(r.fear), 'Fear', { bar: r.fear, key: 'mech:fear' }) + kpi('globe', '#5b8def', (r.standing > 0 ? '+' : '') + Math.round(r.standing), 'Standing', { bar: (r.standing + 100) / 2, key: 'mech:standing' }) +
       kpi('radio', '#ffb224', Math.round(r.resistance), 'Mayday', { bar: r.resistance, alert: r.resistance > 70, key: 'mech:mayday' });
   }
   const sp = G.paused ? 0 : G.speed;
-  patch($('#topbar'), `<button class="brand" data-act="info" data-arg="era:${G.phase}">${mark(36)}<span class="bt"><span class="era">${P0.name.replace(/^The /, "")}</span><span class="date">${fmtDate(G.day)}</span></span></button>
+  patch($('#topbar'), `<button class="brand" data-act="info" data-arg="era:${G.phase}">${mark(36)}<span class="bt"><span class="era">${P0.name.replace(/^The /, "")}</span><span class="date">${fmtDate(G.day)}</span>${G.phase > 0 ? `<span class="ledgerbar" title="Next Ledger"><i style="width:${((G.day % LEDGER_DAYS) / LEDGER_DAYS * 100).toFixed(1)}%"></i></span>` : ''}</span></button>
     <div class="timectl"><button class="pause ${sp === 0 ? 'on' : ''}" data-act="speed" data-arg="0">${icon('pause')}</button>${[1, 2, 4].map(s => `<button class="${sp === s ? 'on' : ''}" data-act="speed" data-arg="${s}">${s}×</button>`).join('')}</div>
     <div class="kpis">${k}</div>`);
   fitHud();
@@ -377,6 +379,8 @@ function howto() {
   const sec = (ic, t, body) => `<div style="display:flex;gap:14px;margin:0 0 14px"><span style="width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--redbg);color:var(--red2);flex:none">${icon(ic)}</span><div><b style="color:var(--ink)">${t}</b><div style="font-size:14px">${body}</div></div></div>`;
   modal(`${mhead('book-open', 'Field manual', 'How to play')}<div class="mb">
   ${sec('clock', 'Time', 'Pause or run at 1×, 2× or 4× (a day every 1.5s / 0.75s / 0.375s). Urgent dispatches pause the game and it resumes when you have answered.')}
+  ${sec('scroll', 'The monthly Ledger', 'From the coup on, the Treasury, Supplies and Power are settled once a month (the gold bar under the date). The small figures in the top bar show what the next Ledger brings. Keep the Treasury out of arrears and the granaries stocked: what you hold on Ledger day is what counts. State Workshops and Offices of Trade earn money; Agricultural Colonies grow food.')}
+  ${sec('hourglass', 'Building crews', 'Only a few sites can be under construction at once (more as the Republic grows), and each further institution of a type costs a little more. Build what the Republic needs, not everything.')}
   ${sec('candle', 'Era 1: The Sons of Jacob', `${T} states to found chapters and infiltrate bases. Open The Plot to fundraise, publish Serena Joy\'s book, cover your tracks and prepare the Three Strikes. Seat founders under Commanders. Keep FBI suspicion below 100%.`)}
   ${sec('bolt', 'The coup', 'When the key goals are met, execute the Three Strikes. States fall to you according to your chapters and infiltration.')}
   ${sec('scroll', 'The Republic', `Enact Decrees in the order the show depicts to unlock institutions. ${T} a held city to build: Red Centres, Martha Houses, Aunts\' Halls, Barracks, Eyes, Detention, Colonies, Wife Schools, the Wall and more.`)}

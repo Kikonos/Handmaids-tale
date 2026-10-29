@@ -1,6 +1,6 @@
 # Gilead: Under His Eye
 
-**v1.7.0 "Ofjune"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**, and adapts to iPhone, Android, Mac and PC.
+**v1.8.0 "The Ledger"** is a grand strategy game set in the world of Hulu's *The Handmaid's Tale* (2017–2025) and *The Testaments* (2026). It is built for an **iPad in landscape**, and adapts to iPhone, Android, Mac and PC.
 
 You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the United States, carry out the Three Strikes, and then build, run and defend the Republic of Gilead through six eras that follow the show's arc:
 
@@ -12,6 +12,15 @@ You are the Committee of the Sons of Jacob in 2012. You plot the takeover of the
 | 4 | **The War** | Take Chicago, live under sanctions, face Angels' Flight and the Waterfords' arrest in Toronto. |
 | 5 | **New Bethlehem** | Run Lawrence's soft-power reform, or spring the hardliners' trap. |
 | 6 | **The Reckoning** | Survive the wedding, hold Boston for a year and rule from sea to sea. |
+
+## What's new in v1.8 "The Ledger"
+
+- **The monthly Ledger.** From the coup on, Treasury, Supplies and Power are paid in once a month instead of trickling in every day. The small figures beside them in the top bar show what the next Ledger will add or take, and a gold bar under the date counts down to it. What you hold on Ledger day is what counts. If the Treasury is in arrears, institutions train at half pace, offensives weaken and Stability falls. If the granaries run low, rationing sets in, and empty granaries mean famine. Full granaries steady the cities. This is what keeps 4× speed from turning into a race: the calendar runs fast, but the Republic only grows as fast as its Ledgers allow.
+- **New ways to make money.** **State Workshops** (Economen labour in seized factories) earn ₲18M a month, or ₲54M when purpose-built. **Offices of Trade** sell produce abroad and earn more with Agricultural Colonies and good Standing. Tithes, black markets, foreign buyers and seized fortunes now arrive as dispatches. The Treasury sheet breaks down where every coin comes from.
+- **Harder to brute-force.** Only a few building crews work at once, and you get more as you hold more cities. Each further institution of a type costs 8% more. Power has a ceiling (150 plus 10 per seated Commander), so it can't be hoarded into the thousands. Walls, halls, markets and the Eyes give diminishing returns. Mayday can be driven underground, but never wiped out.
+- **Slower, steadier meters.** Stability, Piety, Fear and Mayday drift over months towards targets set by the state of the Republic, and a single dispatch moves them about 40% less than before.
+- **Dispatches that make sense, and fewer of them.** Random dispatches come every month or two instead of every week or two. Each one becomes rarer the more often it has happened, and the same one never comes twice in a row. Story dispatches are spaced out. Events now check that they are possible: no Handmaid escapes before there are Handmaids, no market bombing without a market, no rail sabotage without a depot. Ten new dispatches add variety.
+- **You pay for what you choose.** An event choice that spends Treasury, Supplies or Power now shows the price and can't be picked unless you can pay it.
 
 ## What's new in v1.7 "Ofjune"
 

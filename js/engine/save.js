@@ -27,6 +27,8 @@ function migrate(G) {
     }
   }
   G.bld = G.bld.filter(b => !b.gone);
+  // 1.8: Power is capped and paid monthly; a hoard from an older save is trimmed to the new ceiling
+  if (G.phase > 0) G.res.power = Math.min(G.res.power, 300);
   for (const b of G.bld) if (b.slot == null && !b.site) { let s = 0; while (G.bld.some(o => o !== b && o.city === b.city && !o.site && o.slot === s)) s++; b.slot = s; }
 }
 function store() { try { return globalThis.localStorage || null; } catch { return null; } }

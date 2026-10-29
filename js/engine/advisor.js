@@ -3,8 +3,9 @@
 // Pure functions of G, so the headless tests can exercise them.
 import { BUILDINGS, CITIES, STATES, M, fmtNum, seated, inTraining, isHeld } from './core.js';
 import { CITY_POS, STATE_SHAPES } from '../data/geo.js';
-import { buildAvailability, replaceAvailability as replaceOk, availableTroops, supplied, airfieldFor, checkpointAvailability, crossingHost, crossingName } from './actions.js';
+import { buildAvailability, buildCost, replaceAvailability as replaceOk, availableTroops, supplied, airfieldFor, checkpointAvailability, crossingHost, crossingName } from './actions.js';
 import { CROSSINGS } from '../data/sites.js';
+import { ECON } from './sim.js';
 
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const centroid = ab => { const s = STATE_SHAPES.find(x => x.id === STATES[ab].fips); return { x: s.c[0], y: s.c[1] }; };
@@ -53,12 +54,12 @@ export function needs(G) {
   const detYr = capOf(G, 'detention', true);
   if (p.detainees > 2000) set('detention', clamp(p.detainees / (detYr / 6 + 20000)) * 0.75, `${fmtNum(p.detainees)} detainees are held without interrogation.`);
   // Unhoused Unwomen and the food supply.
-  const unh = G._unhoused || 0, short = (G._supplyNet || 0) < 0 || r.supplies < 40;
+  const unh = G._unhoused || 0, short = (G._supplyNet || 0) < 0 || G._granary === 'rationing' || G._granary === 'famine';
   if (unh > 5000) {
     set('colony', clamp(unh / 250000) * (short ? 0.45 : 0.7), `${fmtNum(unh)} Unwomen are held in camps. Colony labour reclaims land and raises fertility.`);
     set('agricolony', clamp(unh / 250000) * (short ? 0.75 : 0.45), `${fmtNum(unh)} Unwomen are held in camps. On farm colonies they grow food.`);
   }
-  if (short) set('agricolony', 0.55 + clamp(-(G._supplyNet || 0) / 20) * 0.35, `Supplies are ${(G._supplyNet || 0) < 0 ? `falling by ${Math.abs(G._supplyNet).toFixed(1)} a day` : 'running low'}.`);
+  if (short) set('agricolony', 0.55 + clamp(-(G._supplyNet || 0) / 10) * 0.35, `Supplies are ${(G._supplyNet || 0) < 0 ? `falling by ${Math.round(-G._supplyNet * 30)} a month` : 'running low'}.`);
   if (short) set('market', 0.4, 'Loaves and Fishes markets cut supply consumption.');
   // Order and faith.
   if (r.stability < 62) set('market', (62 - r.stability) / 62 * 0.6, `Stability is ${Math.round(r.stability)}. Markets steady the cities.`);
@@ -82,6 +83,15 @@ export function needs(G) {
     const surv = Math.min(0.9, 0.5 + count(G, 'birthcenter') * 0.05 + Math.min(0.15, p.reclaimed / 2000));
     if (surv < 0.9) set('birthcenter', (0.9 - surv) / 0.4 * 0.6, `Only ${Math.round(surv * 100)}% of babies survive. Each Birthing House saves 5% more.`);
   }
+  // Money: workshops (need Economen to staff them) and, once trade opens, Offices of Trade.
+  const month = ((G._income || 0) - (G._upkeep || 0)) * 30;
+  const poor = month < 0 || r.treasury < 150;
+  const staffed = G._staffed ?? 1, works = count(G, 'workshop');
+  if (staffed > 0.7) set('workshop', poor ? 0.55 + clamp(-month / 150) * 0.4 : 0.25 * Math.pow(0.85, works),
+    poor ? `The Treasury ${month < 0 ? `loses ₲${Math.round(-month)}M a month` : `holds only ₲${Math.round(r.treasury)}M`}. A State Workshop pays ₲18M a month and costs almost nothing to run.` : `Workshops turn Economen into revenue: ₲18M a month each, ₲54M purpose-built.`);
+  else if (works) set('workshop', 0, '');
+  if (G.decrees.d_trade_mission != null && count(G, 'exchange') < 4) set('exchange', (poor ? 0.5 : 0.3) * Math.pow(0.8, count(G, 'exchange')),
+    `An Office of Trade sells produce abroad: about ₲${Math.round(45 * (1 + 0.25 * Math.min(4, count(G, 'agricolony'))))}M a month, more with good Standing.`);
   if (G.decrees.d_new_bethlehem != null && !count(G, 'newbethlehem')) set('newbethlehem', 1, 'New Bethlehem is a key goal of this era.');
   return N;
 }
@@ -138,18 +148,18 @@ export function recommendForCity(G, city, N = needs(G), limit = 3) {
       const w = weakest(G, city, N, type);
       if (!w || w.v > nd.score - 0.3) continue;
       replace = w.b;
-    } else if (!av.ok && !/^Needs ₲/.test(av.msg)) continue;
+    } else if (!av.ok && !/^Needs ₲|building crews/.test(av.msg)) continue;
     const { f, why } = fit(G, type, city, N);
     // When the Treasury is bleeding, favour cheap-to-run institutions.
     const T = BUILDINGS[type].tiers[tier], net = (G._income || 0) - (G._upkeep || 0);
-    const up = T.upkeep || 0;
+    const up = (T.upkeep || 0) * ECON.bldUpkeep;
     const thrift = type === 'newbethlehem' ? 1 : net - up < 0 ? 0.45 / (1 + up) : net - up < 2 ? 0.75 : 1;
     const many = Math.pow(0.93, count(G, type)); // diminishing returns: spread effort across needs
     const score = nd.score * f * thrift * many * (replace ? 0.8 : 1);
     let reason = nd.reason + why;
-    if (net - up < 0 && type !== 'newbethlehem') reason += ` Its upkeep (₲${up}M a day) would put the Treasury in deficit.`;
+    if (net - up < 0 && type !== 'newbethlehem' && up > 0) reason += ` Its upkeep (₲${Math.round(up * 30)}M a month) would put the Treasury in deficit.`;
     if (score < 0.08) continue;
-    out.push({ type, tier, city, score, reason, replace: replace?.uid ?? null, replaceName: replace?.name, afford: G.res.treasury >= BUILDINGS[type].tiers[tier].cost });
+    out.push({ type, tier, city, score, reason, replace: replace?.uid ?? null, replaceName: replace?.name, afford: replace ? replaceOk(G, replace.uid, type, tier).ok : av.ok });
   }
   // A Wall that is costing the Republic its standing: suggest turning it into something useful.
   const wall = G.phase >= 3 && G.res.standing < 0 && G.bld.find(b => b.city === city && !b.site && b.type === 'wall' && b.done == null);
@@ -157,7 +167,7 @@ export function recommendForCity(G, city, N = needs(G), limit = 3) {
     const best = Object.entries(N).filter(([t, v]) => t !== 'wall' && v.score >= 0.12).map(([t, v]) => ({ t, v, tier: tierFor(G, t) }))
       .filter(o => { const a = replaceOk(G, wall.uid, o.t, o.tier); return a.ok || /^Needs ₲/.test(a.msg); }).sort((a, b) => b.v.score - a.v.score)[0];
     const reason = `Standing is ${Math.round(G.res.standing)}: taking down the Wall here gains 1.5 standing${G.phase === 4 ? ', and New Bethlehem needs 0 or more' : ''}.`;
-    if (best) out.push({ type: best.t, tier: best.tier, city, score: 0.5 + 0.4 * best.v.score + (G.phase === 4 ? 0.2 : 0), reason: `${reason} ${best.v.reason}`, replace: wall.uid, replaceName: wall.name, afford: G.res.treasury + 4 >= BUILDINGS[best.t].tiers[best.tier].cost });
+    if (best) out.push({ type: best.t, tier: best.tier, city, score: 0.5 + 0.4 * best.v.score + (G.phase === 4 ? 0.2 : 0), reason: `${reason} ${best.v.reason}`, replace: wall.uid, replaceName: wall.name, afford: replaceOk(G, wall.uid, best.t, best.tier).ok });
   }
   return out.sort((a, b) => b.score - a.score).slice(0, limit);
 }
@@ -190,8 +200,9 @@ export function warnings(G) {
   const w = [];
   if (G.phase === 0) return w;
   const r = G.res, net = (G._income || 0) - (G._upkeep || 0);
-  if (net < 0) w.push({ ic: 'coins', bad: true, title: `The Treasury loses ₲${Math.abs(net).toFixed(1)}M a day`, text: r.treasury < 50 ? 'Bankruptcy hurts Stability. Build nothing that is not essential, close idle institutions or give a capable Commander the Economy portfolio.' : 'Upkeep exceeds income. New institutions add to upkeep; choose carefully.' });
-  if ((G._supplyNet || 0) < 0 && r.supplies < 200) w.push({ ic: 'wheat', bad: true, title: 'Supplies are running out', text: 'Famine cuts Stability by 25. Agricultural Colonies and Loaves and Fishes markets help.' });
+  if (r.treasury < 0) w.push({ ic: 'coins', bad: true, title: `The Treasury is ₲${Math.round(-r.treasury)}M in arrears`, text: 'Unpaid institutions train at half pace, offensives lose 30% of their punch and Stability falls by 10 until the debt is paid. Build State Workshops, sell produce abroad or close idle institutions.' });
+  else if (net < 0) w.push({ ic: 'coins', bad: true, title: `The Treasury loses ₲${Math.round(-net * 30)}M a month`, text: r.treasury + net * 30 * 2 < 0 ? 'At this rate it will be in arrears within two Ledgers. Build State Workshops (or Offices of Trade), close idle institutions or give a capable Commander the Economy portfolio.' : 'Upkeep exceeds income. New institutions add to upkeep; State Workshops and Offices of Trade add to income.' });
+  if (G._granary === 'famine' || G._granary === 'rationing' || ((G._supplyNet || 0) < 0 && r.supplies + G._supplyNet * 60 < 0)) w.push({ ic: 'wheat', bad: true, title: G._granary === 'famine' ? 'Famine' : G._granary === 'rationing' ? 'Rationing' : 'Supplies are running out', text: 'Rationing costs 6 Stability and famine 20, and hunger feeds Mayday. Full granaries (60%+) add 3. Agricultural Colonies grow food; Loaves and Fishes markets cut consumption.' });
   if (G.phase >= 3 && r.standing < 0) w.push({ ic: 'globe', bad: G.phase === 4, title: `International standing is ${Math.round(r.standing)}`, text: `Sanctions cut income${G.phase === 4 ? ', and New Bethlehem needs standing of 0 or more' : ''}. Each Wall costs 1.5 standing; air strikes cost more. A Foreign Affairs portfolio, New Bethlehem and the Mexican trade deal raise it.` });
   if ((G._auntEff ?? 1) < 1) w.push({ ic: 'book-open', bad: false, title: `Red Centres run at ${Math.round(G._auntEff * 100)}%`, text: 'Not enough Aunts to staff them. Build an Aunts\' Hall before more Red Centres.' });
   return w;

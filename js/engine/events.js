@@ -6,6 +6,18 @@ import {
 } from './core.js';
 import { CITY_POS } from '../data/geo.js';
 
+// Resources an event choice spends. A negative amount of one of these on any choice but the last ("do nothing")
+// is a price: the choice is unavailable unless you can pay it. On the last choice it is a loss that simply happens.
+const SPEND = ['treasury', 'supplies', 'power', 'funds', 'influence'];
+// The 0-100 meters move slowly now; event shocks are scaled to match, so one dispatch cannot swing them wildly.
+const METERS = ['stability', 'piety', 'fear', 'resistance', 'standing'], METER_K = 0.6;
+for (const e of EVENTS) e.choices.forEach((c, i) => {
+  if (c.fx) for (const [k, v] of Object.entries(c.fx)) {
+    if (METERS.includes(k)) c.fx[k] = Math.sign(v) * Math.max(1, Math.round(Math.abs(v) * METER_K));
+    else if (v < 0 && SPEND.includes(k) && i < e.choices.length - 1) { (c.cost || (c.cost = {}))[k] = (c.cost[k] || 0) - v; delete c.fx[k]; }
+  }
+});
+
 export function makeH(G) {
   const H = {
     G,
@@ -86,24 +98,31 @@ export function eventsTick(G) {
       resolveEvent(G, q.uid, e.choices.length - 1, true);
     }
   }
-  // Scripted
+  // Scripted (the story). Urgent ones arrive at once; the others are spaced at least STORY_GAP days apart.
+  const ev = G.events, calm = G.day - (ev.lastStory ?? -99) >= STORY_GAP;
   for (const e of EVENTS) {
-    if (e.random) continue;
-    if (eligible(G, H, e)) enqueue(G, e.id);
-  }
-  // Random
-  if (G.day >= G.events.nextRandom) {
-    const pool = EVENTS.filter(e => e.random && eligible(G, H, e));
-    const active = G.events.queue.filter(q => !EVENT_BY_ID[q.id].urgent).length;
-    if (pool.length && active < 4) {
-      const tot = pool.reduce((a, e) => a + (e.weight || 1), 0);
-      let x = rand(G) * tot;
-      const e = pool.find(e => (x -= e.weight || 1) < 0) || pool[0];
+    if (e.random || (!e.urgent && !calm)) continue;
+    if (eligible(G, H, e)) {
       enqueue(G, e.id);
+      if (!e.urgent) { ev.lastStory = G.day; ev.nextRandom = Math.max(ev.nextRandom, G.day + 20); break; }
     }
-    G.events.nextRandom = G.day + (G.phase === 0 ? rint(G, 16, 30) : rint(G, 9, 20));
+  }
+  // Random: roughly every one to two months, never the same one twice running, and the more often an event
+  // has happened the rarer it becomes.
+  if (G.day >= ev.nextRandom) {
+    const pool = EVENTS.filter(e => e.random && e.id !== ev.lastRandom && eligible(G, H, e));
+    const active = G.events.queue.filter(q => !EVENT_BY_ID[q.id].urgent).length;
+    if (pool.length && active < 3) {
+      const w = e => (e.weight || 1) / (1 + (ev.done[e.id] || 0));
+      let x = rand(G) * pool.reduce((a, e) => a + w(e), 0);
+      const e = pool.find(e => (x -= w(e)) < 0) || pool[0];
+      enqueue(G, e.id);
+      ev.lastRandom = e.id;
+    }
+    ev.nextRandom = G.day + (G.phase === 0 ? rint(G, 30, 50) : rint(G, 45, 80));
   }
 }
+const STORY_GAP = 12;
 
 export function choiceAvailable(G, e, c) {
   const H = makeH(G);

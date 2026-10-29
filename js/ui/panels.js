@@ -137,7 +137,7 @@ export function cityDrawer(G, city) {
       <div class="ibtns"><button class="btn sm ${canUp ? 'gold' : ''}" data-act="replace-menu" data-arg="${b.uid}">${icon(canUp ? 'arrow-up' : 'swap')}${canUp ? 'Upgrade' : 'Replace'}</button><button class="btn sm" data-act="demolish" data-arg="${b.uid}">Close</button></div></div>`;
   }
   if (held) {
-    h += `<h3>${icon('plus')}Build</h3>`;
+    h += `<h3>${icon('plus')}Build <small>${A.building(G)} of ${A.crews(G)} building crews busy</small>${hq('mech:crews')}</h3>`;
     for (const type of BUILD_ORDER) {
       const B = BUILDINGS[type];
       if (B.unlock && G.decrees[B.unlock] == null) continue;
@@ -147,7 +147,7 @@ export function cityDrawer(G, city) {
         if (!av.ok && /Already one|Only one|Only at|road crosses/.test(av.msg)) return;
         const nextName = B.unique ? B.names[0] : B.names[(G.nameIdx[type] || 0) % B.names.length];
         const cap = T.cap ? (B.housing ? ` · houses ${fmtNum(T.cap)}` : ` · ${fmtNum(T.cap)} per ${T.days}-day course`) : '';
-        h += actBtn({ act: 'build', arg: `${type}|${city}|${i}`, art: model(type), color: B.color, title: `${B.label}${B.tiers.length > 1 ? ` · ${T.name}` : ''}`, desc: `${av.ok ? esc(nextName) : av.msg}${cap}`, cost: `₲${T.cost}M · ${T.build}d`, ok: av.ok, info: 'bld:' + type });
+        h += actBtn({ act: 'build', arg: `${type}|${city}|${i}`, art: model(type), color: B.color, title: `${B.label}${B.tiers.length > 1 ? ` · ${T.name}` : ''}`, desc: `${av.ok ? esc(nextName) : av.msg}${cap}`, cost: `₲${A.buildCost(G, type, i)}M · ${T.build}d`, ok: av.ok, info: 'bld:' + type });
       });
     }
     const locked = BUILD_ORDER.filter(t => BUILDINGS[t].unlock && G.decrees[BUILDINGS[t].unlock] == null);
@@ -168,8 +168,8 @@ function recBtn(G, r, withCity, n = 0) {
   }
   const where = withCity ? ` in ${CITY_POS[r.city].name}` : '';
   const title = old ? `Replace ${esc(old.name)} with ${B.label}${where}` : `${B.label}${B.tiers.length > 1 ? ` · ${T.name}` : ''}${where}`;
-  const cost = old ? T.cost - A.salvage(old) : T.cost;
-  const btn = actBtn1({ act: old ? 'replace' : 'build', arg: old ? `${old.uid}|${r.type}|${r.tier}` : `${r.type}|${r.city}|${r.tier}`, art: model(r.type), color: B.color, title, desc: esc(r.reason), cost: `₲${cost}M`, ok: G.res.treasury >= cost });
+  const full = A.buildCost(G, r.type, r.tier, old?.type === r.type ? old.uid : null), cost = old ? full - A.salvage(old) : full;
+  const btn = actBtn1({ act: old ? 'replace' : 'build', arg: old ? `${old.uid}|${r.type}|${r.tier}` : `${r.type}|${r.city}|${r.tier}`, art: model(r.type), color: B.color, title, desc: esc(r.reason), cost: `₲${cost}M`, ok: r.afford !== false && G.res.treasury >= cost });
   return `<div class="rec">${n ? `<span class="recn">${n}</span>` : ''}${btn}${withCity ? `<button class="ainfo" data-act="city" data-arg="${r.city}" aria-label="Open city">${icon('pin')}</button>` : `<button class="ainfo"${ti('bld:' + r.type)} aria-label="More information">${icon('info')}</button>`}</div>`;
 }
 
@@ -208,7 +208,7 @@ export function replaceMenu(G, uid) {
     });
   }
   opts.sort((a, b) => b.score - a.score);
-  const row = o => { const B = BUILDINGS[o.type], net = o.T.cost - refund; return `<button class="choice ${o.ok ? '' : 'dis'}" data-act="replace" data-arg="${uid}|${o.type}|${o.tier}"><span class="cm">${model(o.type)}</span><span class="ct">${o.up ? 'Upgrade · ' : ''}${B.label}${B.tiers.length > 1 ? ` · ${o.T.name}` : ''}${o.score >= 0.3 && !o.up ? ' <span class="tag gold" style="height:20px">Recommended</span>' : ''}<small>${esc(o.reason)}</small></span><span class="fxs"><span class="fx ${net <= 0 ? 'p' : 'n'}">${icon('coins')}<b>${net <= 0 ? '+' : '−'}₲${Math.abs(net)}M</b></span><span class="fx">${icon('clock')}<b>${o.T.build}d</b></span></span></button>`; };
+  const row = o => { const B = BUILDINGS[o.type], net = A.buildCost(G, o.type, o.tier, o.up ? uid : null) - refund; return `<button class="choice ${o.ok ? '' : 'dis'}" data-act="replace" data-arg="${uid}|${o.type}|${o.tier}"><span class="cm">${model(o.type)}</span><span class="ct">${o.up ? 'Upgrade · ' : ''}${B.label}${B.tiers.length > 1 ? ` · ${o.T.name}` : ''}${o.score >= 0.3 && !o.up ? ' <span class="tag gold" style="height:20px">Recommended</span>' : ''}<small>${esc(o.reason)}</small></span><span class="fxs"><span class="fx ${net <= 0 ? 'p' : 'n'}">${icon('coins')}<b>${net <= 0 ? '+' : '−'}₲${Math.abs(net)}M</b></span><span class="fx">${icon('clock')}<b>${o.T.build}d</b></span></span></button>`; };
   return `<div class="mh"><div class="tile mtilebig">${model(old.type)}</div><div><div class="loc">${icon('swap')}Replace · ${CITY_POS[old.city].name}</div><h2>${esc(old.name)}</h2></div></div>
   <div class="mb" style="padding-bottom:8px"><p style="margin:0;font-size:14px">Closing it salvages <b class="good">₲${refund}M</b> (${old.done != null ? 'half the cost, since it is unfinished' : 'a quarter of its cost'}).${OB.from && old.cohorts?.length && !opts.some(o => o.up) ? ' Anyone in training returns to their pool.' : ''} Costs below are net of salvage.</p></div>
   <div class="mc">${opts.map(row).join('') || '<div class="empty">Nothing else can be built here yet.</div>'}<button class="btn sm" data-act="closemodal" style="align-self:flex-end;margin-top:4px">Cancel</button></div>`;

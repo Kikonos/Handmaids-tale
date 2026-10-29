@@ -174,6 +174,22 @@ const MODELS = {
       poly([[-6.5, 6.5, 2.4], [6.5, 6.5, 2.4], [6.5, 8.6, 1.8], [-6.5, 8.6, 1.8]], shade(c, 0.1)) +
       box(-3, -1, 13.8, 6, 0.6, 2.6, '#ff6bb5', { top: '#ff9fd0' });
   },
+  workshop: c => {
+    const brick = mix(c, '#7a4a36', 0.45);
+    let saw = '';
+    for (let i = 0; i < 4; i++) { const y = -7 + i * 3.4; saw += face([[-8, y, 6], [4, y, 6], [4, y + 3.4, 8.6], [-8, y + 3.4, 8.6]], ROOF, 0.18) + face([[-8, y + 3.4, 6], [4, y + 3.4, 6], [4, y + 3.4, 8.6], [-8, y + 3.4, 8.6]], '#9fc4d8', -0.1) + face([[4, y, 6], [4, y + 3.4, 6], [4, y + 3.4, 8.6]], brick, -0.35); }
+    return shadow() + slab('#3a3632') + box(-8, -7, 0.8, 12, 13.6, 5.2, brick, { top: '#4a3a34' }) + saw +
+      windows('y', 6.6, -7.4, 3.4, 1.6, 5.4, 5, 1, '#f1d8a8', 0.5) + windows('x', 4, -6.4, 6, 1.6, 5.4, 4, 1, '#c7ae84', 0.5) +
+      cyl(7, -5, 0.8, 1.4, 15, shade(brick, -0.1), 'flat', '#2a2620') + box(6, 2.5, 0.8, 3.2, 3.2, 2.4, '#7a6a52') + box(6.4, 6.2, 0.8, 2.4, 2.4, 1.8, '#8a7a5c');
+  },
+  exchange: c => {
+    const wall = mix(c, '#e8e2d4', 0.6);
+    let cols = ''; for (const y of [-3.6, -1.2, 1.2, 3.6]) cols += box(5.6, y - 0.5, 1.6, 1, 1, 5.6, WHITE);
+    let crates = ''; for (const [x, y, z] of [[-9, 6, 0.8], [-6.6, 6, 0.8], [-9, 6, 2.8], [-4.2, 7, 0.8]]) crates += box(x, y, z, 2.2, 2.2, 2, '#9a7a4a');
+    return shadow() + slab('#33373d') + box(-7, -6, 0.8, 14, 12, 0.8, STONE) +
+      box(-6, -5, 1.6, 11, 10, 5.6, wall) + windows('y', 5, -5.4, 4.4, 2.4, 6.6, 4, 1, '#3a3f47', 0.45) + cols +
+      gable(-6.4, -5.4, 7.2, 13.4, 10.8, 3, shade(c, -0.3), 'x', WHITE) + crates + flag(-3, -3, 10.2, 5, shade(c, 0.1));
+  },
   wall: c => {
     const brick = mix(c, '#6a4a3a', 0.25);
     let bodies = '';

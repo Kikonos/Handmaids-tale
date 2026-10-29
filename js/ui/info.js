@@ -7,7 +7,7 @@ import {
   councilFill, districtCap, M, HIGH_COUNCIL_SEATS, COMMITTEE_SEATS,
 } from '../engine/core.js';
 import * as A from '../engine/actions.js';
-import { H as SIMH } from '../engine/sim.js';
+import { H as SIMH, powerCap, supplyCap, LEDGER_DAYS } from '../engine/sim.js';
 import { CITY_POS } from '../data/geo.js';
 import { DECREES } from '../data/decrees.js';
 import { GOALS, PHASES } from '../data/phases.js';
@@ -30,14 +30,16 @@ const costTxt = c => Object.entries(c || {}).map(([k, v]) => k === 'funds' ? `$$
 const heldN = G => Object.values(G.st).filter(s => s.hold >= 99.5 && !s.exile).length;
 const keyMet = (G, ph = G.phase) => { const k = GOALS.filter(g => g.phase === ph && g.key); return `${k.filter(g => G.goals[g.id] != null).length} / ${k.length}`; };
 const built = (G, t) => G.bld.filter(b => b.type === t && b.done == null).length;
-const powerDay = G => 0.2 + M(G, 'powerDay') + seated(G).length * 0.03 + councilFill(G) * 0.6 + (G.res.stability - 50) / 150;
+const nextLedger = G => { const d = LEDGER_DAYS - (G.day % LEDGER_DAYS); return `In ${d} day${d === 1 ? '' : 's'}`; };
+const mo = v => (v >= 0 ? '+' : '−') + '₲' + Math.round(Math.abs(v) * 30) + 'M';
+const GRANARY = { full: 'Full (Stability +3)', ok: 'Adequate', rationing: 'Rationing (Stability −6)', famine: 'Famine (Stability −20)' };
 const cdTxt = (G, id) => { const d = (G.cool[id] || 0) - G.day; return d > 0 ? `Ready in ${d} days` : 'Ready now'; };
 
 // Lasting decree modifiers in plain words.
 const MOD_TXT = {
   income: v => `Treasury income +${pct(v * 100)}`,
   regWomen: v => `Women marry as Econowives ${pct(v * 100)} faster`,
-  powerDay: v => `+${v} Power per day`,
+  powerDay: v => `+${Math.round(v * 15)} Power a month`,
   arrests: v => `Eyes make ${pct(v * 100)} more arrests`,
   fertileFind: v => v >= 1 ? 'Fertile women can be sent to Red Centres' : `Fertile women found ${pct(v * 100)} faster`,
   seizeChildren: () => 'Children are taken from "unfit" parents into elite households',
@@ -88,10 +90,12 @@ const LIVE = {
   infiltration: G => [['National infiltration', `${infiltration(G).toFixed(1)}% / 35%`]],
   committee: G => [['Founders seated', `${seated(G).length} / ${COMMITTEE_SEATS}`], ['Next seat', costTxt(A.seatCost(G))]],
   coup: G => [['Congress', pct(G.plot.congress)], ['White House', pct(G.plot.whitehouse)], ['Supreme Court', pct(G.plot.court)], ['Ready to strike', A.coupReady(G).ready ? 'Yes' : 'Not yet']],
-  power: G => [['Power', fmtNum(G.res.power)], ['Per day', signed(powerDay(G), 2)]],
+  power: G => [['Power', `${fmtNum(G.res.power)} / ${powerCap(G)}`], ['Granted at the next Ledger', G.res.power >= powerCap(G) ? 'Nothing: at the ceiling' : '+' + Math.round((G._powerDay || 0) * 30)], ['Next Ledger', nextLedger(G)]],
   decrees: G => [['Enacted', `${Object.keys(G.decrees).length} / ${DECREES.length}`], ['Available now', DECREES.filter(d => A.decreeState(G, d) === 'available').length]],
-  treasury: G => [['Treasury', money('₲', G.res.treasury)], ['Income per day', '₲' + (G._income || 0).toFixed(2) + 'M'], ['Upkeep per day', '₲' + (G._upkeep || 0).toFixed(2) + 'M'], ['Sanctions', `−${pct((G._sanctions || 0) * 100)} income`]],
-  supplies: G => [['Supplies', fmtNum(G.res.supplies)], ['Net per day', signed(G._supplyNet || 0)]],
+  treasury: G => { const p = G._incomeParts || {}; return [['Treasury', money('₲', G.res.treasury) + (G.res.treasury < 0 ? ' (in arrears)' : '')], ['Taxes and labour', mo(p.taxes || 0) + ' a month'], ['State Workshops', mo(p.works || 0) + (G._staffed < 1 ? ` (${pct(G._staffed * 100)} staffed)` : '')], ['Trade abroad', mo((p.trade || 0) + (p.mexico || 0))], ['Institutions', mo(-(p.buildings || 0))], ['Guardians and Eyes', mo(-(p.forces || 0))], ['Net at the next Ledger', mo((G._income || 0) - (G._upkeep || 0))], ['Next Ledger', nextLedger(G)], ['Sanctions', `−${pct((G._sanctions || 0) * 100)} income`]]; },
+  supplies: G => [['Supplies', `${fmtNum(G.res.supplies)} / ${fmtNum(supplyCap(G))}`], ['Granaries', GRANARY[G._granary] || 'Adequate'], ['Net at the next Ledger', signed((G._supplyNet || 0) * 30, 0)], ['Next Ledger', nextLedger(G)]],
+  ledger: G => { const L = G.lastLedger; return [['Next Ledger', nextLedger(G)], ...(L ? [['Last Ledger', fmtDate(L.day, true)], ['Treasury', mo(L.treasury / 30)], ['Supplies', signed(L.supplies, 0)], ['Power', '+' + Math.round(L.power)]] : [])]; },
+  crews: G => [['Building crews', `${A.building(G)} busy of ${A.crews(G)}`], ['Held cities', Object.keys(CITIES).filter(c => G.st[CITIES[c].st]?.hold >= 99.5).length]],
   stability: G => [['Stability', Math.round(G.res.stability)]],
   piety: G => [['Piety', Math.round(G.res.piety)]],
   fear: G => [['Fear', Math.round(G.res.fear)]],
@@ -189,7 +193,7 @@ export function infoSheet(G, key, canBack = false) {
     if (B.needsAunts) how += ` Needs Aunts on staff (${B.needsAunts} for a converted centre, 20 purpose-built).`;
     body += section('plus', 'How to build it', how);
     const conv = B.from ? `${POOL_INFO[B.from]?.label || CLASS_INFO[B.from]?.label || B.from} → ${B.to === 'processed' ? 'interrogated' : CLASS_INFO[B.to]?.label}` : '';
-    body += section('layers', 'Versions', `<div class="itiers">${B.tiers.map(T => `<div><b>${T.name}</b><span>₲${T.cost}M · ${T.build} days to build${T.cap ? ` · ${B.housing ? 'houses ' + fmtNum(T.cap) : fmtNum(T.cap) + ' per ' + T.days + '-day course'}` : ''}${T.upkeep ? ` · upkeep ₲${T.upkeep}M/day` : ''}</span>${T.unlock ? `<small>${icon('lock')}Needs ${DEC[T.unlock]?.name}</small>` : ''}</div>`).join('')}</div>${conv ? `<p class="muted">Converts: ${conv}</p>` : ''}`);
+    body += section('layers', 'Versions', `<div class="itiers">${B.tiers.map((T, i) => `<div><b>${T.name}</b><span>₲${G ? A.buildCost(G, id, i) : T.cost}M · ${T.build} days to build${T.cap ? ` · ${B.housing ? 'houses ' + fmtNum(T.cap) : fmtNum(T.cap) + ' per ' + T.days + '-day course'}` : ''}${T.income ? ` · earns ₲${Math.round(T.income * 30)}M a month` : ''}${T.upkeep ? ` · upkeep ₲${Math.max(1, Math.round(T.upkeep * 0.3 * 30))}M a month` : ''}</span>${T.unlock ? `<small>${icon('lock')}Needs ${DEC[T.unlock]?.name}</small>` : ''}</div>`).join('')}</div>${conv ? `<p class="muted">Converts: ${conv}</p>` : ''}`);
     if (B.names.length > 1) body += section('book', 'Names', `<p class="muted">Each new one takes the next name: ${B.names.slice(0, 6).map(esc).join(', ')}…</p>`);
     if (G) body += section('clock', 'Right now', kvs([['Operating', built(G, id)], ['Under construction', G.bld.filter(b => b.type === id && b.done != null).length]]));
     if (G && G.phase > 0) {

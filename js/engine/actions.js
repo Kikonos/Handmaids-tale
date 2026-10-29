@@ -1,7 +1,7 @@
 // Player actions. Each returns { ok, msg } so the UI can toast the result.
 import {
   STATES, CITIES, BUILDINGS, COMMANDERS, DISTRICTS, rand, rint, clamp, add, pay, canAfford, log, fx, M, invalidate,
-  infiltration, seated, isHeld, cityHeld, annex, districtCap, dist, fmtNum, HIGH_COUNCIL_SEATS, COMMITTEE_SEATS, applyFx,
+  infiltration, seated, isHeld, cityHeld, annex, districtCap, dist, fmtNum, HIGH_COUNCIL_SEATS, COMMITTEE_SEATS, applyFx, portfolioBonus,
 } from './core.js';
 import { DECREE_BY_ID } from '../data/decrees.js';
 import { CITY_POS, STATE_SHAPES } from '../data/geo.js';
@@ -200,7 +200,7 @@ export function launchCoup(G, early = false) {
   G.army.usa = clamp(Math.round(60 - inf * 0.4 - q * 10), 25, 70);
   G.res.treasury = Math.round(G.res.funds + 150);
   G.res.power = 40 + Math.round(G.res.influence * 0.4);
-  G.res.supplies = 400;
+  G.res.supplies = 1200;
   G.res.stability = clamp(40 + q * 15, 0, 100);
   G.res.fear = 25; G.res.piety = 35; G.res.standing = early ? -20 : -10; G.res.resistance = 20;
   // Committee becomes the provisional government
@@ -242,6 +242,23 @@ export function enact(G, id) {
 }
 
 // ---------------- Construction ----------------
+// Each further institution of a type costs 8% more than the last (checkpoints and New Bethlehem excepted).
+export function buildCost(G, type, tier = 0, ignoreUid = null) {
+  const B = BUILDINGS[type], T = B.tiers[tier];
+  if (B.unique === 'site' || B.unique === 'nation') return T.cost;
+  const n = G.bld.filter(b => b.type === type && b.uid !== ignoreUid).length;
+  return Math.round(T.cost * (1 + 0.08 * n));
+}
+// Building crews: only so many sites can be under construction at once. More held cities, more crews.
+export function crews(G) {
+  const cities = Object.keys(CITIES).filter(c => cityHeld(G, c)).length;
+  return 2 + Math.floor(cities / 8) + (portfolioBonus(G, 'adm') >= 0.6 ? 1 : 0) + Math.round(M(G, 'adm') * 4);
+}
+export const building = (G, ignoreUid = null) => G.bld.filter(b => b.done != null && b.uid !== ignoreUid).length;
+function crewCheck(G, ignoreUid = null) {
+  const n = crews(G);
+  return building(G, ignoreUid) >= n ? no(`All ${n} building crews are busy`) : null;
+}
 // ignoreUid / credit: check as if that institution were already gone and its salvage refunded (replacement).
 export function buildAvailability(G, type, city, tier = 0, ignoreUid = null, credit = 0) {
   const bld = ignoreUid == null ? G.bld : G.bld.filter(b => b.uid !== ignoreUid);
@@ -258,15 +275,16 @@ export function buildAvailability(G, type, city, tier = 0, ignoreUid = null, cre
   if (B.cities && !B.cities.includes(city)) return no('Only at ' + B.cities.map(c => CITY_POS[c].name).join(', '));
   const slots = 2 + CITIES[city].rank * 2;
   if (bld.filter(b => b.city === city && !b.site).length >= slots) return no(`City full (${slots} institutions)`);
-  if (G.res.treasury + credit < T.cost) return no(`Needs ₲${T.cost - credit}M`);
-  return ok('');
+  const cost = buildCost(G, type, tier, ignoreUid);
+  if (G.res.treasury + credit < cost) return no(`Needs ₲${cost - credit}M`);
+  return crewCheck(G, ignoreUid) || ok('');
 }
 export function build(G, type, city, tier = 0, site = null) {
   if (BUILDINGS[type].unique === 'site') return buildCheckpoint(G, site);
   const a = buildAvailability(G, type, city, tier);
   if (!a.ok) return a;
   const B = BUILDINGS[type], T = B.tiers[tier];
-  add(G, 'treasury', -T.cost);
+  add(G, 'treasury', -buildCost(G, type, tier));
   const i = G.nameIdx[type] || 0;
   G.nameIdx[type] = i + 1;
   let name = B.names[i % B.names.length];
@@ -308,7 +326,7 @@ export function checkpointAvailability(G, site, credit = 0) {
   if (G.bld.some(b => b.site === site)) return no('A checkpoint already stands here');
   if (!crossingHost(G, x)) return no('Neither side of this line is held');
   if (G.res.treasury + credit < B.tiers[0].cost) return no(`Needs ₲${B.tiers[0].cost - credit}M`);
-  return ok('');
+  return crewCheck(G) || ok('');
 }
 export function buildCheckpoint(G, site) {
   const a = checkpointAvailability(G, site);
@@ -342,8 +360,9 @@ export function replace(G, uid, type, tier = 0) {
   const old = G.bld.find(b => b.uid === uid), B = BUILDINGS[type], T = B.tiers[tier];
   const refund = salvage(old), upgrade = old.type === type;
   if (upgrade) {
+    const cost = buildCost(G, type, tier, uid);
     G.bld.splice(G.bld.indexOf(old), 1);
-    add(G, 'treasury', refund - T.cost);
+    add(G, 'treasury', refund - cost);
     startConstruction(G, type, old.city, tier, old.name, { cohorts: old.cohorts || [], occ: old.occ || 0, slot: old.slot });
     log(G, `${old.name} is rebuilt as a ${T.name.toLowerCase()} (${CITY_POS[old.city].name}).`, 'build', old.city);
     return ok(`${old.name}: upgrade begun`);
@@ -440,7 +459,7 @@ export function strike(G, ab, kind) {
   } else {
     G.cool.drone = G.day + 3;
     s.resist = clamp(s.resist - 14, 0, 100); s.hold = clamp(s.hold + 2.5, 0, 100);
-    add(G, 'resistance', -2.5); add(G, 'standing', -0.4);
+    add(G, 'resistance', -1); add(G, 'standing', -0.4);
     G.stats.drones++;
     fx(G, 'drone', { st: ab, from: c.af.city });
     log(G, `Drone strike on a resistance cell in ${STATES[ab].name}.`, 'war', ab);

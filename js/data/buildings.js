@@ -2,6 +2,7 @@
 // from: pool or class consumed; to: class produced; cap: trainees at once; days: course length.
 // tiers: [converted building, purpose-built]. Converted buildings are cheap and fast; new builds unlock later.
 // names: biblical names used in order for each new institution of that type.
+// income: ₲M a day paid into the Treasury at the monthly Ledger (workshops need Economen to staff them).
 
 export const BUILDINGS = {
   redcenter: {
@@ -102,6 +103,20 @@ export const BUILDINGS = {
     tiers: [{ name: 'Seized hotel', cost: 60, build: 10, cap: 150, days: 30, upkeep: 0.3 }],
     names: ['Jezebels'], unique: 'city',
   },
+  workshop: {
+    label: 'State Workshop', short: 'Workshop', icon: 'factory', color: '#8c7a5c', unlock: 'd_republic',
+    desc: 'Seized factories worked by Economen: uniforms, bricks, rifles, canned goods. Pays into the Treasury every month, as long as there are Economen enough to staff it.',
+    tiers: [
+      { name: 'Seized factory', cost: 50, build: 15, income: 0.6, upkeep: 0 },
+      { name: 'Model works', cost: 160, build: 40, income: 1.8, upkeep: 0, unlock: 'd_new_centres' },
+    ],
+    names: ['Nehemiah Works', 'Bezalel Works', 'Hiram Foundry', 'Tubal-cain Ironworks', 'Aholiab Mills', 'Zerubbabel Works', 'Huram Foundry', 'Jabal Mills'],
+  },
+  exchange: {
+    label: 'Office of Trade', short: 'Trade Office', icon: 'briefcase', color: '#5f8a7a', unlock: 'd_trade_mission',
+    desc: 'Sells "completely organic" produce and Gilead\'s goods abroad through friendly ports. Earns more with Agricultural Colonies and good Standing; sanctions choke it.',
+    tiers: [{ name: 'Customs house', cost: 120, build: 25, income: 1.5, upkeep: 0 }], names: ['Office of Trade'], unique: 'city',
+  },
   wall: {
     label: 'The Wall', short: 'The Wall', icon: 'wall', color: '#8a6e58', unlock: 'd_wall',
     desc: 'Salvagings and hangings on the old Harvard wall. Fear rises, unrest falls — the world watches.',
@@ -145,4 +160,4 @@ export const BUILDINGS = {
 };
 
 export const BUILD_ORDER = ['redcenter', 'marthahouse', 'ardua', 'barracks', 'eyes', 'detention', 'colony', 'agricolony',
-  'wifeschool', 'jezebels', 'wall', 'market', 'church', 'airfield', 'depot', 'checkpoint', 'birthcenter', 'newbethlehem'];
+  'workshop', 'exchange', 'wifeschool', 'jezebels', 'wall', 'market', 'church', 'airfield', 'depot', 'checkpoint', 'birthcenter', 'newbethlehem'];
